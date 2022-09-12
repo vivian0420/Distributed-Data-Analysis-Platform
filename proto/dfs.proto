@@ -1,0 +1,39 @@
+syntax = "proto3";
+option go_package = "./messages";
+
+/* heart beat message with avaliable space + storage + retrievals */
+message Heartbeat {
+	double free_space = 1;
+	double storage = 2;
+	int32 retrieval = 3;
+}
+
+message Registration {
+	string storagePath = 1;
+	string host = 2;
+}
+
+message Destination {
+	string type = 1;
+	string filename = 2;
+	int64 size = 3;
+}
+
+message Data {
+	string filename  = 1;
+	string type = 2;
+	bytes content = 3;
+        int32 content_length = 4;
+	string checksum = 5;
+	int32 seq_number = 6;
+}
+
+message Wrapper {
+    oneof msg {
+	Heartbeat heartbeat_message = 1;
+	Registration registration_message = 2;
+        Destination destination_message = 3;
+        Data data_message = 4;
+
+    }
+}
