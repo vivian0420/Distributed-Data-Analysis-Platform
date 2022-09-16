@@ -10,6 +10,9 @@ import (
 	"dfs/messages"
 )
 
+
+
+
 func main() {
 	host := os.Args[1]
         conn, err := net.Dial("tcp", host+":8080") 
@@ -29,25 +32,43 @@ func main() {
 
                 message := scanner.Text()
 		if len(message) != 0 {
-			if strings.HasPrefix(message, "upload") {
+                        switch prefix := strings.Split(message, " ")[0] {
+			case "upload":
 				filePath := strings.Split(message, " ")[1]
-				fi, err := os.Stat(filePath)
-				if err != nil {
-    					log.Fatalln(err.Error())
-                       			return
-				}	
-				fileSize := fi.Size()
-				destinationObject := messages.Destination{Type: "upload", Filename: filePath, Size: fileSize};
-				rWrapper := &messages.Wrapper{
+                                fi, err := os.Stat(filePath)
+                                if err != nil {
+                                        log.Fatalln(err.Error())
+                                        return
+                                }       
+                                fileSize := fi.Size()
+                                destinationObject := messages.Destination{Type: "upload", Filename: filePath, Size: fileSize};
+                                rWrapper := &messages.Wrapper{
+                                    Msg: &messages.Wrapper_DestinationMessage{DestinationMessage: &destinationObject},
+                                }
+                                msgHandler.Send(rWrapper)	
+			case "download":
+				filePath := strings.Split(message, " ")[1]
+                                fi, err := os.Stat(filePath)
+                                if err != nil {
+                                        log.Fatalln(err.Error())
+                                        return
+                                }
+                                destinationObject := messages.Destination{Type: "download", Filename: filePath};
+                                rWrapper := &messages.Wrapper{
                                     Msg: &messages.Wrapper_DestinationMessage{DestinationMessage: &destinationObject},
                                 }
                                 msgHandler.Send(rWrapper)
-			}
+			case "storage":
+				continue;
+			case "retrieve":
+				continue;
+			case "delete":
+				continue;
+			case "lf":
+				continue;
+			case "ln":
+				continue;
+ 			}
 		}
-		
-
 	}
-
-
-
 }           
