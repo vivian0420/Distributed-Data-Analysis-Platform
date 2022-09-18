@@ -53,7 +53,9 @@ func handleHeartBeat(msgHandler *messages.MessageHandler, hostname string) {
 		var stat unix.Statfs_t
                 wd, _ := os.Getwd()
 		unix.Statfs(wd, &stat)
-           
+		fmt.Println(hostname)
+		fmt.Println(numOfRequests)
+		fmt.Println(stat.Bavail * uint64(stat.Bsize))           
 		hbMessage := messages.HeartBeat{Name: hostname, Requests: numOfRequests, FreeSpace: stat.Bavail * uint64(stat.Bsize)}
 		wrap := &messages.Wrapper{
              		Msg: &messages.Wrapper_Heartbeat{Heartbeat: &hbMessage},

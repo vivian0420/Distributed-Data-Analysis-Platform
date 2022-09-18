@@ -2,15 +2,48 @@ package main
 
 import (
 	"log"
-	"strings"
-	"bufio"
 	"net"
 	"os"
-        "fmt"
+	"io"
 	"dfs/messages"
+	"crypto/md5"
 )
 
+const ChunkSize = 32768
+var order = uint64(1)
+func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string) {
+	defer msgHandler.Close()
+	wrapper, _ := msgHandler.Receive()
+	switch msg := wrapper.Msg.(type) {
+	case *messages.Wrapper_Approbation:
+		approved := msg.Approbation.GetApproved()
+		if approved {
+			chunk := make([]byte, ChunkSize)
+			for {
+				bytesread, err := file.Read(chunk)
+				if err != nil {
+					if err != io.EOF {
+						log.Println(err)
+					}
 
+					break
+			  	}
+				checksum := md5.Sum(chunk[:bytesread])
+				chunkMessage := messages.Chunk{Fullpath: path, Order: order, Checksum: checksum[:], Size: uint64(bytesread)}
+				wrap := &messages.Wrapper{
+                			Msg: &messages.Wrapper_Chunk{Chunk: &chunkMessage},
+                		}
+                		msgHandler.Send(wrap)		
+				//handleUpload()				
+			}
+		}
+	default:
+        	log.Printf("Unexpected message type: %T", msg)
+
+	}
+
+
+}
 
 
 func main() {
@@ -22,53 +55,42 @@ func main() {
         }
         defer conn.Close()
 	msgHandler := messages.NewMessageHandler(conn)
-
-	scanner := bufio.NewScanner(os.Stdin)
-	for {
-		result := scanner.Scan() // Reads up to a \n newline character
-                if result == false {
-                        break
-                }
-
-                message := scanner.Text()
-		if len(message) != 0 {
-                        switch prefix := strings.Split(message, " ")[0] {
-			case "upload":
-				filePath := strings.Split(message, " ")[1]
-                                fi, err := os.Stat(filePath)
-                                if err != nil {
-                                        log.Fatalln(err.Error())
-                                        return
-                                }       
-                                fileSize := fi.Size()
-                                destinationObject := messages.Destination{Type: "upload", Filename: filePath, Size: fileSize};
-                                rWrapper := &messages.Wrapper{
-                                    Msg: &messages.Wrapper_DestinationMessage{DestinationMessage: &destinationObject},
-                                }
-                                msgHandler.Send(rWrapper)	
-			case "download":
-				filePath := strings.Split(message, " ")[1]
-                                fi, err := os.Stat(filePath)
-                                if err != nil {
-                                        log.Fatalln(err.Error())
-                                        return
-                                }
-                                destinationObject := messages.Destination{Type: "download", Filename: filePath};
-                                rWrapper := &messages.Wrapper{
-                                    Msg: &messages.Wrapper_DestinationMessage{DestinationMessage: &destinationObject},
-                                }
-                                msgHandler.Send(rWrapper)
-			case "storage":
-				continue;
-			case "retrieve":
-				continue;
-			case "delete":
-				continue;
-			case "lf":
-				continue;
-			case "ln":
-				continue;
- 			}
+	fileMessage := messages.File{}
+	if os.Args[2] == "put" {
+		file, err := os.Open(os.Args[3]) 
+		if err != nil {
+		log.Fatal(err)
 		}
+        	defer file.Close()
+		fi, err := file.Stat()
+		if err != nil {
+    			log.Fatal(err)
+		}
+        	size := uint64(fi.Size())
+		h := md5.New()
+        	if _, err := io.Copy(h, file); err != nil {
+        		log.Fatal(err)
+  		}
+		checksum := h.Sum(nil)
+		fileMessage = messages.File{Fullpath: os.Args[4], Checksum: checksum, Size:size, Action: os.Args[2]}
+		wrap := &messages.Wrapper{
+                Msg: &messages.Wrapper_File{File: &fileMessage},
+        	}
+        	msgHandler.Send(wrap)
+        	handlePut(msgHandler, file, os.Args[4])
+		return
+	} else if os.Args[2] == "get" ||  os.Args[2] == "delete" || os.Args[2] == "ls" {
+		fileMessage = messages.File{Fullpath: os.Args[3], Action: os.Args[2]}
+	} else if os.Args[2] == "listnode" {
+		fileMessage = messages.File{Action: os.Args[2]}
+	} else {
+		log.Println("Invalid action: ", os.Args[2])
+		return
 	}
-}           
+	wrap := &messages.Wrapper{
+                Msg: &messages.Wrapper_File{File: &fileMessage},
+        } 
+        msgHandler.Send(wrap)
+	//handleController(msgHandler)
+
+}

@@ -4,16 +4,17 @@ option go_package = "./messages";
 /* heart beat message with avaliable space + storage + retrievals */
 message File {
     string fullpath = 1;
-    string checksum = 2;
+    bytes checksum = 2;
     uint64 size = 3;
     string action = 4;
-    repeated Chunk chunks = 5;
+    bool finished = 5;
+    repeated Chunk chunks = 6;
 }
 
 message Chunk {
     string fullpath = 1;
     uint64 order = 2;
-    string checksum = 3;
+    bytes checksum = 3;
     uint64 size = 4;
     bytes content = 5;
     repeated Host hosts = 6;
@@ -33,6 +34,10 @@ message Hosts {
     repeated Host hosts = 1;
 }
 
+message Approbation {
+    bool approved = 1;
+}
+
 message HeartBeat {
     string name = 1;
     uint64 requests = 2;
@@ -47,6 +52,7 @@ message Wrapper {
         Chunk chunk = 4;
         HeartBeat heartbeat = 5;
         Hosts hosts = 6;
+	Approbation approbation = 7;
     }
 }
 
