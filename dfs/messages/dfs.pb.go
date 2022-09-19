@@ -256,7 +256,6 @@ type Host struct {
 	unknownFields protoimpl.UnknownFields
 
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Port uint32 `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
 }
 
 func (x *Host) Reset() {
@@ -296,13 +295,6 @@ func (x *Host) GetName() string {
 		return x.Name
 	}
 	return ""
-}
-
-func (x *Host) GetPort() uint32 {
-	if x != nil {
-		return x.Port
-	}
-	return 0
 }
 
 type Hosts struct {
@@ -352,6 +344,53 @@ func (x *Hosts) GetHosts() []*Host {
 	return nil
 }
 
+type Status struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+}
+
+func (x *Status) Reset() {
+	*x = Status{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_dfs_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Status) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Status) ProtoMessage() {}
+
+func (x *Status) ProtoReflect() protoreflect.Message {
+	mi := &file_dfs_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Status.ProtoReflect.Descriptor instead.
+func (*Status) Descriptor() ([]byte, []int) {
+	return file_dfs_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Status) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
 type Approbation struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -363,7 +402,7 @@ type Approbation struct {
 func (x *Approbation) Reset() {
 	*x = Approbation{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_dfs_proto_msgTypes[5]
+		mi := &file_dfs_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -376,7 +415,7 @@ func (x *Approbation) String() string {
 func (*Approbation) ProtoMessage() {}
 
 func (x *Approbation) ProtoReflect() protoreflect.Message {
-	mi := &file_dfs_proto_msgTypes[5]
+	mi := &file_dfs_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -389,7 +428,7 @@ func (x *Approbation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Approbation.ProtoReflect.Descriptor instead.
 func (*Approbation) Descriptor() ([]byte, []int) {
-	return file_dfs_proto_rawDescGZIP(), []int{5}
+	return file_dfs_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Approbation) GetApproved() bool {
@@ -412,7 +451,7 @@ type HeartBeat struct {
 func (x *HeartBeat) Reset() {
 	*x = HeartBeat{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_dfs_proto_msgTypes[6]
+		mi := &file_dfs_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -425,7 +464,7 @@ func (x *HeartBeat) String() string {
 func (*HeartBeat) ProtoMessage() {}
 
 func (x *HeartBeat) ProtoReflect() protoreflect.Message {
-	mi := &file_dfs_proto_msgTypes[6]
+	mi := &file_dfs_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -438,7 +477,7 @@ func (x *HeartBeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartBeat.ProtoReflect.Descriptor instead.
 func (*HeartBeat) Descriptor() ([]byte, []int) {
-	return file_dfs_proto_rawDescGZIP(), []int{6}
+	return file_dfs_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *HeartBeat) GetName() string {
@@ -475,13 +514,14 @@ type Wrapper struct {
 	//	*Wrapper_Heartbeat
 	//	*Wrapper_Hosts
 	//	*Wrapper_Approbation
+	//	*Wrapper_Status
 	Msg isWrapper_Msg `protobuf_oneof:"msg"`
 }
 
 func (x *Wrapper) Reset() {
 	*x = Wrapper{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_dfs_proto_msgTypes[7]
+		mi := &file_dfs_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -494,7 +534,7 @@ func (x *Wrapper) String() string {
 func (*Wrapper) ProtoMessage() {}
 
 func (x *Wrapper) ProtoReflect() protoreflect.Message {
-	mi := &file_dfs_proto_msgTypes[7]
+	mi := &file_dfs_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -507,7 +547,7 @@ func (x *Wrapper) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Wrapper.ProtoReflect.Descriptor instead.
 func (*Wrapper) Descriptor() ([]byte, []int) {
-	return file_dfs_proto_rawDescGZIP(), []int{7}
+	return file_dfs_proto_rawDescGZIP(), []int{8}
 }
 
 func (m *Wrapper) GetMsg() isWrapper_Msg {
@@ -566,6 +606,13 @@ func (x *Wrapper) GetApprobation() *Approbation {
 	return nil
 }
 
+func (x *Wrapper) GetStatus() *Status {
+	if x, ok := x.GetMsg().(*Wrapper_Status); ok {
+		return x.Status
+	}
+	return nil
+}
+
 type isWrapper_Msg interface {
 	isWrapper_Msg()
 }
@@ -598,6 +645,10 @@ type Wrapper_Approbation struct {
 	Approbation *Approbation `protobuf:"bytes,7,opt,name=approbation,proto3,oneof"`
 }
 
+type Wrapper_Status struct {
+	Status *Status `protobuf:"bytes,8,opt,name=status,proto3,oneof"`
+}
+
 func (*Wrapper_File) isWrapper_Msg() {}
 
 func (*Wrapper_Files) isWrapper_Msg() {}
@@ -611,6 +662,8 @@ func (*Wrapper_Heartbeat) isWrapper_Msg() {}
 func (*Wrapper_Hosts) isWrapper_Msg() {}
 
 func (*Wrapper_Approbation) isWrapper_Msg() {}
+
+func (*Wrapper_Status) isWrapper_Msg() {}
 
 var File_dfs_proto protoreflect.FileDescriptor
 
@@ -640,12 +693,13 @@ var file_dfs_proto_rawDesc = []byte{
 	0x61, 0x6d, 0x65, 0x18, 0x07, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x68, 0x6f, 0x73, 0x74, 0x6e,
 	0x61, 0x6d, 0x65, 0x22, 0x24, 0x0a, 0x05, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x12, 0x1b, 0x0a, 0x05,
 	0x66, 0x69, 0x6c, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x05, 0x2e, 0x46, 0x69,
-	0x6c, 0x65, 0x52, 0x05, 0x66, 0x69, 0x6c, 0x65, 0x73, 0x22, 0x2e, 0x0a, 0x04, 0x48, 0x6f, 0x73,
+	0x6c, 0x65, 0x52, 0x05, 0x66, 0x69, 0x6c, 0x65, 0x73, 0x22, 0x1a, 0x0a, 0x04, 0x48, 0x6f, 0x73,
 	0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x70, 0x6f, 0x72, 0x74, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x0d, 0x52, 0x04, 0x70, 0x6f, 0x72, 0x74, 0x22, 0x24, 0x0a, 0x05, 0x48, 0x6f, 0x73,
-	0x74, 0x73, 0x12, 0x1b, 0x0a, 0x05, 0x68, 0x6f, 0x73, 0x74, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
-	0x0b, 0x32, 0x05, 0x2e, 0x48, 0x6f, 0x73, 0x74, 0x52, 0x05, 0x68, 0x6f, 0x73, 0x74, 0x73, 0x22,
+	0x04, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0x24, 0x0a, 0x05, 0x48, 0x6f, 0x73, 0x74, 0x73, 0x12, 0x1b,
+	0x0a, 0x05, 0x68, 0x6f, 0x73, 0x74, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x05, 0x2e,
+	0x48, 0x6f, 0x73, 0x74, 0x52, 0x05, 0x68, 0x6f, 0x73, 0x74, 0x73, 0x22, 0x22, 0x0a, 0x06, 0x53,
+	0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x18, 0x0a, 0x07, 0x73, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x07, 0x73, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x22,
 	0x29, 0x0a, 0x0b, 0x41, 0x70, 0x70, 0x72, 0x6f, 0x62, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x1a,
 	0x0a, 0x08, 0x61, 0x70, 0x70, 0x72, 0x6f, 0x76, 0x65, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08,
 	0x52, 0x08, 0x61, 0x70, 0x70, 0x72, 0x6f, 0x76, 0x65, 0x64, 0x22, 0x5a, 0x0a, 0x09, 0x48, 0x65,
@@ -654,7 +708,7 @@ var file_dfs_proto_rawDesc = []byte{
 	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x72,
 	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x73, 0x12, 0x1d, 0x0a, 0x0a, 0x66, 0x72, 0x65, 0x65, 0x5f,
 	0x73, 0x70, 0x61, 0x63, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x66, 0x72, 0x65,
-	0x65, 0x53, 0x70, 0x61, 0x63, 0x65, 0x22, 0x88, 0x02, 0x0a, 0x07, 0x57, 0x72, 0x61, 0x70, 0x70,
+	0x65, 0x53, 0x70, 0x61, 0x63, 0x65, 0x22, 0xab, 0x02, 0x0a, 0x07, 0x57, 0x72, 0x61, 0x70, 0x70,
 	0x65, 0x72, 0x12, 0x1b, 0x0a, 0x04, 0x66, 0x69, 0x6c, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b,
 	0x32, 0x05, 0x2e, 0x46, 0x69, 0x6c, 0x65, 0x48, 0x00, 0x52, 0x04, 0x66, 0x69, 0x6c, 0x65, 0x12,
 	0x1e, 0x0a, 0x05, 0x66, 0x69, 0x6c, 0x65, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x06,
@@ -670,9 +724,11 @@ var file_dfs_proto_rawDesc = []byte{
 	0x00, 0x52, 0x05, 0x68, 0x6f, 0x73, 0x74, 0x73, 0x12, 0x30, 0x0a, 0x0b, 0x61, 0x70, 0x70, 0x72,
 	0x6f, 0x62, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0c, 0x2e,
 	0x41, 0x70, 0x70, 0x72, 0x6f, 0x62, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x48, 0x00, 0x52, 0x0b, 0x61,
-	0x70, 0x70, 0x72, 0x6f, 0x62, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x42, 0x05, 0x0a, 0x03, 0x6d, 0x73,
-	0x67, 0x42, 0x0c, 0x5a, 0x0a, 0x2e, 0x2f, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x70, 0x70, 0x72, 0x6f, 0x62, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x21, 0x0a, 0x06, 0x73, 0x74,
+	0x61, 0x74, 0x75, 0x73, 0x18, 0x08, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x07, 0x2e, 0x53, 0x74, 0x61,
+	0x74, 0x75, 0x73, 0x48, 0x00, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x42, 0x05, 0x0a,
+	0x03, 0x6d, 0x73, 0x67, 0x42, 0x0c, 0x5a, 0x0a, 0x2e, 0x2f, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67,
+	0x65, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -687,16 +743,17 @@ func file_dfs_proto_rawDescGZIP() []byte {
 	return file_dfs_proto_rawDescData
 }
 
-var file_dfs_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_dfs_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_dfs_proto_goTypes = []interface{}{
 	(*File)(nil),        // 0: File
 	(*Chunk)(nil),       // 1: Chunk
 	(*Files)(nil),       // 2: Files
 	(*Host)(nil),        // 3: Host
 	(*Hosts)(nil),       // 4: Hosts
-	(*Approbation)(nil), // 5: Approbation
-	(*HeartBeat)(nil),   // 6: HeartBeat
-	(*Wrapper)(nil),     // 7: Wrapper
+	(*Status)(nil),      // 5: Status
+	(*Approbation)(nil), // 6: Approbation
+	(*HeartBeat)(nil),   // 7: HeartBeat
+	(*Wrapper)(nil),     // 8: Wrapper
 }
 var file_dfs_proto_depIdxs = []int32{
 	1,  // 0: File.chunks:type_name -> Chunk
@@ -707,14 +764,15 @@ var file_dfs_proto_depIdxs = []int32{
 	2,  // 5: Wrapper.files:type_name -> Files
 	3,  // 6: Wrapper.host:type_name -> Host
 	1,  // 7: Wrapper.chunk:type_name -> Chunk
-	6,  // 8: Wrapper.heartbeat:type_name -> HeartBeat
+	7,  // 8: Wrapper.heartbeat:type_name -> HeartBeat
 	4,  // 9: Wrapper.hosts:type_name -> Hosts
-	5,  // 10: Wrapper.approbation:type_name -> Approbation
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	6,  // 10: Wrapper.approbation:type_name -> Approbation
+	5,  // 11: Wrapper.status:type_name -> Status
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_dfs_proto_init() }
@@ -784,7 +842,7 @@ func file_dfs_proto_init() {
 			}
 		}
 		file_dfs_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Approbation); i {
+			switch v := v.(*Status); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -796,7 +854,7 @@ func file_dfs_proto_init() {
 			}
 		}
 		file_dfs_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HeartBeat); i {
+			switch v := v.(*Approbation); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -808,6 +866,18 @@ func file_dfs_proto_init() {
 			}
 		}
 		file_dfs_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*HeartBeat); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_dfs_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Wrapper); i {
 			case 0:
 				return &v.state
@@ -820,7 +890,7 @@ func file_dfs_proto_init() {
 			}
 		}
 	}
-	file_dfs_proto_msgTypes[7].OneofWrappers = []interface{}{
+	file_dfs_proto_msgTypes[8].OneofWrappers = []interface{}{
 		(*Wrapper_File)(nil),
 		(*Wrapper_Files)(nil),
 		(*Wrapper_Host)(nil),
@@ -828,6 +898,7 @@ func file_dfs_proto_init() {
 		(*Wrapper_Heartbeat)(nil),
 		(*Wrapper_Hosts)(nil),
 		(*Wrapper_Approbation)(nil),
+		(*Wrapper_Status)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -835,7 +906,7 @@ func file_dfs_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_dfs_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

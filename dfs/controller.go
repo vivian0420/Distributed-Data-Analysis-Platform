@@ -17,9 +17,11 @@ type activednode struct {
 	timeStamp int64
 }
 
+
 var  activedNodes = make(map[string] activednode)
 var totalSpace = uint64(0)
 const DFSController = "dfs-controller.bin"
+var files = &messages.Files{}
 
 func handleClient(msgHandler *messages.MessageHandler) {
 	defer msgHandler.Close()
@@ -37,7 +39,6 @@ func handleClient(msgHandler *messages.MessageHandler) {
 			if err != nil {
 			        log.Fatalln("Error reading file:", err)
 			}
-			files := &messages.Files{}
 			if err := proto.Unmarshal(in, files); err != nil {
 			        log.Fatalln("Failed to parse Files:", err)
 			}
@@ -63,12 +64,45 @@ func handleClient(msgHandler *messages.MessageHandler) {
                         	Msg: &messages.Wrapper_Approbation{Approbation: &approbationMessage},
                         }
                         msgHandler.Send(wrap)	
+		case *messages.Wrapper_Chunk:
+			log.Println("Received chunk message")
+			for _, file := range files.GetFiles() {
+                                if file.GetFullpath() == msg.Chunk.GetFullpath() {
+					log.Println("appeng chunk to file")
+					file.Chunks = append(file.GetChunks(), msg.Chunk)
+					break
+                                }
+                        }
+			 out, _ := proto.Marshal(files)
+                         if err := ioutil.WriteFile(DFSController, out, 0644); err != nil {
+                                log.Fatalln("Failed to write Files:", err)
+                        }
+			host := getGreatestSpace()
+			log.Println("Host is: ", host)
+			hostMessage := messages.Host{Name: host}
+			wrap := &messages.Wrapper{
+                                Msg: &messages.Wrapper_Host{Host: &hostMessage},
+                        }
+                        msgHandler.Send(wrap)
+			
 		case nil:
 			continue
                 default:
                         log.Printf("Unexpected message type: %T", msg)
 		}
 	}
+}
+
+func getGreatestSpace() string {
+	max := uint64(0)
+	host := ""
+	for key, value := range activedNodes {
+		if value.freeSpace > max {
+			host = key
+		}
+	}
+	log.Println("return host: ", host)
+	return host
 }
 
 func checkLiveness() {

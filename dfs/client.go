@@ -9,23 +9,24 @@ import (
 	"crypto/md5"
 )
 
-const ChunkSize = 32768
-var order = uint64(1)
+const ChunkSize = 32
+
 func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string) {
 	defer msgHandler.Close()
+	order := uint64(1)
 	wrapper, _ := msgHandler.Receive()
 	switch msg := wrapper.Msg.(type) {
 	case *messages.Wrapper_Approbation:
 		approved := msg.Approbation.GetApproved()
 		if approved {
 			chunk := make([]byte, ChunkSize)
+                        file.Seek(0, 0)
 			for {
 				bytesread, err := file.Read(chunk)
 				if err != nil {
 					if err != io.EOF {
 						log.Println(err)
 					}
-
 					break
 			  	}
 				checksum := md5.Sum(chunk[:bytesread])
@@ -34,17 +35,33 @@ func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string) 
                 			Msg: &messages.Wrapper_Chunk{Chunk: &chunkMessage},
                 		}
                 		msgHandler.Send(wrap)		
-				//handleUpload()				
+				replywrapper, _ := msgHandler.Receive()
+        			switch msg := replywrapper.Msg.(type) {
+        			case *messages.Wrapper_Host:
+                			host := msg.Host.GetName()
+					log.Println(host)
+                			conn, err := net.Dial("tcp", host)
+                			if err != nil {
+                        			log.Fatalln(err.Error())
+                        			return
+                			}
+                			defer conn.Close()
+                			uploadHandler := messages.NewMessageHandler(conn)
+					chunkUploadMessage := messages.Chunk{Fullpath: path, Order: order, Checksum: checksum[:], Size: uint64(bytesread), Content: chunk[:bytesread]}
+					chunkWrap := &messages.Wrapper{
+						Msg: &messages.Wrapper_Chunk{Chunk: &chunkUploadMessage},
+					}
+					uploadHandler.Send(chunkWrap)
+				
+				default:
+                  			log.Printf("Unexpected message type while ask storage nodes for uploading: %T", msg)	
+				}
 			}
 		}
 	default:
-        	log.Printf("Unexpected message type: %T", msg)
-
+        	log.Printf("Unexpected message type while ask approbation for uploading: %T", msg)
 	}
-
-
 }
-
 
 func main() {
 	host := os.Args[1]
@@ -57,6 +74,7 @@ func main() {
 	msgHandler := messages.NewMessageHandler(conn)
 	fileMessage := messages.File{}
 	if os.Args[2] == "put" {
+                
 		file, err := os.Open(os.Args[3]) 
 		if err != nil {
 		log.Fatal(err)
