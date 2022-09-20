@@ -34,57 +34,55 @@ func handleClient(msgHandler *messages.MessageHandler) {
 			activedNodes[nodeName] = node
 			totalSpace += msg.Heartbeat.GetFreeSpace()
 		case *messages.Wrapper_File:
-			approved := true
-			in, err := ioutil.ReadFile(DFSController)
-			if err != nil {
-			        log.Fatalln("Error reading file:", err)
+			action := msg.File.GetAction()
+			if action == "put" {
+				handleClientPut(msgHandler, msg)
+			} else if action == "get" {
+							
 			}
-			if err := proto.Unmarshal(in, files); err != nil {
-			        log.Fatalln("Failed to parse Files:", err)
-			}
-                        for _, file := range files.GetFiles() {
-				if file.GetFullpath() == msg.File.GetFullpath() {
-					approved = false
-                                }
-                        }
-			size := msg.File.GetSize()
-			if size > totalSpace / 3 {
-				approved = false
-			}
- 			if approved {
-                        	files.Files = append(files.GetFiles(), msg.File)
-				out, _ := proto.Marshal(files)
-				if err := ioutil.WriteFile(DFSController, out, 0644); err != nil {
-		        		log.Fatalln("Failed to write Files:", err)
-				}
-			}
-			fmt.Println(approved)
-			approbationMessage := messages.Approbation{Approved: approved}
-			wrap := &messages.Wrapper{
-                        	Msg: &messages.Wrapper_Approbation{Approbation: &approbationMessage},
-                        }
-                        msgHandler.Send(wrap)	
 		case *messages.Wrapper_Chunk:
-			log.Println("Received chunk message")
 			for _, file := range files.GetFiles() {
                                 if file.GetFullpath() == msg.Chunk.GetFullpath() {
-					log.Println("appeng chunk to file")
 					file.Chunks = append(file.GetChunks(), msg.Chunk)
 					break
                                 }
                         }
-			 out, _ := proto.Marshal(files)
-                         if err := ioutil.WriteFile(DFSController, out, 0644); err != nil {
+			out, _ := proto.Marshal(files)
+                        if err := ioutil.WriteFile(DFSController, out, 0644); err != nil {
                                 log.Fatalln("Failed to write Files:", err)
                         }
-			host := getGreatestSpace()
-			log.Println("Host is: ", host)
+			host := getGreatestSpace(msg.Chunk.GetHosts())
 			hostMessage := messages.Host{Name: host}
 			wrap := &messages.Wrapper{
                                 Msg: &messages.Wrapper_Host{Host: &hostMessage},
                         }
                         msgHandler.Send(wrap)
-			
+		case *messages.Wrapper_Status:
+			size := 0
+			for _, file := range files.GetFiles() {
+                                if file.GetFullpath() == msg.Status.GetFullpath() {
+					for _, chunk := range file.GetChunks() {
+						if chunk.GetOrder() == msg.Status.GetOrder() {
+							host := &messages.Host{Name: msg.Status.GetName()}
+							chunk.Hosts = append(chunk.GetHosts(), host)
+							size = len(chunk.Hosts)
+							if size < 3 {
+								replicaNode := getGreatestSpace(chunk.Hosts)
+								log.Println("The node to be replicated is: ", replicaNode)
+							        hostMessage := messages.Host{Name: replicaNode}
+                        					wrap := &messages.Wrapper{
+                                					Msg: &messages.Wrapper_Host{Host: &hostMessage},
+                        					}
+                        					msgHandler.Send(wrap)
+							}
+						}
+					}
+				}
+			}
+			out, _ := proto.Marshal(files)
+                        if err := ioutil.WriteFile(DFSController, out, 0644); err != nil {
+                                log.Fatalln("Failed to write Files:", err)
+                        }
 		case nil:
 			continue
                 default:
@@ -93,11 +91,21 @@ func handleClient(msgHandler *messages.MessageHandler) {
 	}
 }
 
-func getGreatestSpace() string {
+func contains(hosts []*messages.Host, name string) bool {
+	for _, v := range hosts {
+		if v.GetName() == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+func getGreatestSpace(hosts []*messages.Host) string {
 	max := uint64(0)
 	host := ""
 	for key, value := range activedNodes {
-		if value.freeSpace > max {
+		if value.freeSpace > max && !contains(hosts, key) {
 			host = key
 		}
 	}
@@ -120,9 +128,40 @@ func checkLiveness() {
 	}
 }
 
+func handleClientPut(msgHandler *messages.MessageHandler, msg *messages.Wrapper_File) {
+	approved := true
+	in, err := ioutil.ReadFile(DFSController)
+	if err != nil {
+	        log.Fatalln("Error reading file:", err)
+	}
+	if err := proto.Unmarshal(in, files); err != nil {
+	        log.Fatalln("Failed to parse Files:", err)
+	}
+	for _, file := range files.GetFiles() {
+	        if file.GetFullpath() == msg.File.GetFullpath() {
+	                approved = false
+	        }
+	}
+	size := msg.File.GetSize()
+	if size > totalSpace / 3 {
+	        approved = false
+	}
+	if approved {
+	        files.Files = append(files.GetFiles(), msg.File)
+	        out, _ := proto.Marshal(files)
+	        if err := ioutil.WriteFile(DFSController, out, 0644); err != nil {
+	                log.Fatalln("Failed to write Files:", err)
+	        }
+	}
+	fmt.Println(approved)
+	approbationMessage := messages.Approbation{Approved: approved}
+	wrap := &messages.Wrapper{
+	        Msg: &messages.Wrapper_Approbation{Approbation: &approbationMessage},
+	}
+	msgHandler.Send(wrap)
+}
+
 func main() {
-
-
 	// Read the existing Files.
 	_, err := ioutil.ReadFile(DFSController)
 	if err != nil {

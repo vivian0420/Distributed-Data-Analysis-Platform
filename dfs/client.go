@@ -39,7 +39,6 @@ func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string) 
         			switch msg := replywrapper.Msg.(type) {
         			case *messages.Wrapper_Host:
                 			host := msg.Host.GetName()
-					log.Println(host)
                 			conn, err := net.Dial("tcp", host)
                 			if err != nil {
                         			log.Fatalln(err.Error())
@@ -52,7 +51,16 @@ func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string) 
 						Msg: &messages.Wrapper_Chunk{Chunk: &chunkUploadMessage},
 					}
 					uploadHandler.Send(chunkWrap)
-				
+					order++
+					/*
+					uploadWrapper, err := uploadHandler.Receive()
+					if err != nil {
+						uploadMsg := uploadWrapper.Msg.(type)
+						order := uploadMsg.Status.GetOrder()
+						log.Printf("Upload file %s failed on chunk %d", file, order)
+						return
+					}
+					*/
 				default:
                   			log.Printf("Unexpected message type while ask storage nodes for uploading: %T", msg)	
 				}
@@ -61,6 +69,30 @@ func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string) 
 	default:
         	log.Printf("Unexpected message type while ask approbation for uploading: %T", msg)
 	}
+}
+
+func handlePutFile(msgHandler *messages.MessageHandler, args2 string, args3 string, args4 string, fileMessage messages.File) {
+	file, err := os.Open(args3)
+        if err != nil {
+		log.Fatal(err)
+        }
+        defer file.Close()
+        fi, err := file.Stat()
+        if err != nil {
+		log.Fatal(err)
+       	}
+    	size := uint64(fi.Size())
+     	h := md5.New()
+     	if _, err := io.Copy(h, file); err != nil {
+        	log.Fatal(err)
+        }
+    	checksum := h.Sum(nil)
+     	fileMessage = messages.File{Fullpath: args4, Checksum: checksum, Size:size, Action: args2}
+     	wrap := &messages.Wrapper{
+                Msg: &messages.Wrapper_File{File: &fileMessage},
+       	}
+     	msgHandler.Send(wrap)
+     	handlePut(msgHandler, file, args4)
 }
 
 func main() {
@@ -74,28 +106,7 @@ func main() {
 	msgHandler := messages.NewMessageHandler(conn)
 	fileMessage := messages.File{}
 	if os.Args[2] == "put" {
-                
-		file, err := os.Open(os.Args[3]) 
-		if err != nil {
-		log.Fatal(err)
-		}
-        	defer file.Close()
-		fi, err := file.Stat()
-		if err != nil {
-    			log.Fatal(err)
-		}
-        	size := uint64(fi.Size())
-		h := md5.New()
-        	if _, err := io.Copy(h, file); err != nil {
-        		log.Fatal(err)
-  		}
-		checksum := h.Sum(nil)
-		fileMessage = messages.File{Fullpath: os.Args[4], Checksum: checksum, Size:size, Action: os.Args[2]}
-		wrap := &messages.Wrapper{
-                Msg: &messages.Wrapper_File{File: &fileMessage},
-        	}
-        	msgHandler.Send(wrap)
-        	handlePut(msgHandler, file, os.Args[4])
+		handlePutFile(msgHandler, os.Args[2], os.Args[3], os.Args[4], fileMessage)
 		return
 	} else if os.Args[2] == "get" ||  os.Args[2] == "delete" || os.Args[2] == "ls" {
 		fileMessage = messages.File{Fullpath: os.Args[3], Action: os.Args[2]}

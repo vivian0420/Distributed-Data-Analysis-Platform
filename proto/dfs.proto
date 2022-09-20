@@ -34,7 +34,10 @@ message Hosts {
 }
 
 message Status {
-    bool success = 1;
+    string fullpath = 1;
+    bool success = 2;
+    uint64 order = 3;
+    string name = 4;
 }
 
 message Approbation {

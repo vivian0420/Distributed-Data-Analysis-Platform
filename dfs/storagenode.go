@@ -30,7 +30,7 @@ func main() {
 		panic(err)
 	}
 
-        go handleHeartBeat(msgHandler, thisHostName, os.Args[3])   
+        go handleHeartBeat(msgHandler, thisHostName + os.Args[3])   
     
         //establish server socket for listenning from clients
 	listener, err := net.Listen("tcp", os.Args[3])
@@ -41,14 +41,14 @@ func main() {
         for {
                 if conn, err := listener.Accept(); err == nil {
                         clientHandler := messages.NewMessageHandler(conn)
-                        go handleClient(clientHandler)
+                        go handleClient(clientHandler,  msgHandler, thisHostName + os.Args[3])
                 }
         }
 	
 
 }
 
-func handleHeartBeat(msgHandler *messages.MessageHandler, hostname string, port string) {
+func handleHeartBeat(msgHandler *messages.MessageHandler, thisHostName string) {
 	ticker := time.NewTicker(5 * time.Second)
 	for {
 		select {
@@ -56,10 +56,7 @@ func handleHeartBeat(msgHandler *messages.MessageHandler, hostname string, port 
 		var stat unix.Statfs_t
                 wd, _ := os.Getwd()
 		unix.Statfs(wd, &stat)
-		fmt.Println(hostname+port)
-		fmt.Println(numOfRequests)
-		fmt.Println(stat.Bavail * uint64(stat.Bsize))           
-		hbMessage := messages.HeartBeat{Name: hostname+port, Requests: numOfRequests, FreeSpace: stat.Bavail * uint64(stat.Bsize)}
+		hbMessage := messages.HeartBeat{Name: thisHostName, Requests: numOfRequests, FreeSpace: stat.Bavail * uint64(stat.Bsize)}
 		wrap := &messages.Wrapper{
              		Msg: &messages.Wrapper_Heartbeat{Heartbeat: &hbMessage},
         	}
@@ -69,14 +66,14 @@ func handleHeartBeat(msgHandler *messages.MessageHandler, hostname string, port 
 	}
 }
 
-func handleClient(msgHandler *messages.MessageHandler) {
-	defer msgHandler.Close()
+func handleClient(clientHandler *messages.MessageHandler, msgHandler *messages.MessageHandler, thisHostName string) {
+	defer clientHandler.Close()
          for {
-                wrapper, _ := msgHandler.Receive()
+                wrapper, _ := clientHandler.Receive()
                 switch msg := wrapper.Msg.(type) {
 		
 		case *messages.Wrapper_Chunk:
-			path := "/bigdata/jzhang230/storage" + msg.Chunk.GetFullpath() 
+			path := "/Users/vivianzhang/bigdata/jzhang230/storage" + msg.Chunk.GetFullpath() 
 			_, err := os.Stat(path)
 			if os.IsNotExist(err) {
 				if err := os.MkdirAll(path, os.ModePerm); err != nil {
@@ -86,12 +83,14 @@ func handleClient(msgHandler *messages.MessageHandler) {
 			order := msg.Chunk.GetOrder()
 			content := msg.Chunk.GetContent()
 			checksumProvided := msg.Chunk.GetChecksum()
+			size := msg.Chunk.GetSize()
 			//Create a new file for chunk. Path is the file's path + chunk's order
-			err = os.WriteFile(path+"-"+string(order), content, 0644)
+			chunkPath := fmt.Sprintf("%s%d", path+msg.Chunk.GetFullpath()+"-", order)
+			err = os.WriteFile(chunkPath, content, 0644)
 		        if err != nil {
                 		log.Fatal(err)
         		}
-			file, err := os.Open(os.Args[3])
+			file, err := os.Open(chunkPath)
                 	if err != nil {
                 		log.Fatal(err)
                 	}
@@ -107,13 +106,41 @@ func handleClient(msgHandler *messages.MessageHandler) {
 			if res != 0 {
 				success = false
 			}
-			statusMessage := messages.Status{Success: success}
-			wrap := &messages.Wrapper{
-				Msg: &messages.Wrapper_Status{Status: &statusMessage},
+			if success == false {
+				e := os.Remove(chunkPath)
+    				if e != nil {
+        				log.Fatal(e)
+    				}
+				statusMessage := messages.Status{Success: success, Order: order}
+				wrap := &messages.Wrapper{
+					Msg: &messages.Wrapper_Status{Status: &statusMessage},
+				}
+				log.Println("send error message to client")
+				clientHandler.Send(wrap)
+			} else {
+				statusMessage := messages.Status{Fullpath: path,  Order: order, Name: thisHostName}
+                                wrap := &messages.Wrapper{
+                                        Msg: &messages.Wrapper_Status{Status: &statusMessage},
+                                }
+				msgHandler.Send(wrap)
+				replywrapper, _ := msgHandler.Receive()
+				statusMsg := replywrapper. GetStatus()
+				conn, err := net.Dial("tcp", statusMsg.GetName())
+                        	if err != nil {
+                        	        log.Fatalln(err.Error())
+                        	        return
+                        	}
+                        	defer conn.Close()
+                        	replicateHandler := messages.NewMessageHandler(conn)
+				chunkUploadMessage := messages.Chunk{Fullpath: msg.Chunk.GetFullpath(), Order: order, Checksum: chunkChecksum[:], Size: size, Content: content}
+                                chunkWrap := &messages.Wrapper{
+                                        Msg: &messages.Wrapper_Chunk{Chunk: &chunkUploadMessage},
+                                }
+                                replicateHandler.Send(chunkWrap)
 			}
-			msgHandler.Send(wrap) 
+			
                 case nil:
-                        log.Println("Received an empty message, terminating client ")
+                        //log.Println("Received an empty message, terminating client ")
                         return
                 default:
                         log.Printf("Unexpected message type: %T", msg)
