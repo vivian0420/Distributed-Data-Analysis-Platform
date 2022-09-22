@@ -11,6 +11,7 @@ import (
 	"crypto/md5"
 	"io"
 	"bytes"
+        "path/filepath"
 )
 
 var numOfRequests uint64 = 0
@@ -73,7 +74,7 @@ func handleClient(clientHandler *messages.MessageHandler, msgHandler *messages.M
                 switch msg := wrapper.Msg.(type) {
 		
 		case *messages.Wrapper_Chunk:
-			path := "/Users/vivianzhang/bigdata/jzhang230/storage" + msg.Chunk.GetFullpath() 
+			path := filepath.Join(os.Args[1], msg.Chunk.GetFullpath())
 			_, err := os.Stat(path)
 			if os.IsNotExist(err) {
 				if err := os.MkdirAll(path, os.ModePerm); err != nil {
@@ -83,7 +84,7 @@ func handleClient(clientHandler *messages.MessageHandler, msgHandler *messages.M
 			order := msg.Chunk.GetOrder()
 			content := msg.Chunk.GetContent()
 			checksumProvided := msg.Chunk.GetChecksum()
-			size := msg.Chunk.GetSize()
+			// size := msg.Chunk.GetSize()
 			//Create a new file for chunk. Path is the file's path + chunk's order
 			chunkPath := fmt.Sprintf("%s%d", path+msg.Chunk.GetFullpath()+"-", order)
 			err = os.WriteFile(chunkPath, content, 0644)
@@ -118,25 +119,45 @@ func handleClient(clientHandler *messages.MessageHandler, msgHandler *messages.M
 				log.Println("send error message to client")
 				clientHandler.Send(wrap)
 			} else {
-				statusMessage := messages.Status{Fullpath: path,  Order: order, Name: thisHostName}
-                                wrap := &messages.Wrapper{
-                                        Msg: &messages.Wrapper_Status{Status: &statusMessage},
+                                replicates := msg.Chunk.GetReplicanodename()
+
+                                index := -1
+                                for i, v := range replicates {
+					if (v == thisHostName) {
+						index = i
+					}
+				}
+                                if index == len(replicates) - 1 {
+					log.Println("Last node, no need to replicate")
+					return
+				}
+				toReplicate := replicates[index + 1]
+				conn, err := net.Dial("tcp", toReplicate)
+				if err != nil {
+                                         log.Fatalln(err.Error())
+                                         return
                                 }
-				msgHandler.Send(wrap)
-				replywrapper, _ := msgHandler.Receive()
-				statusMsg := replywrapper. GetStatus()
-				conn, err := net.Dial("tcp", statusMsg.GetName())
-                        	if err != nil {
-                        	        log.Fatalln(err.Error())
-                        	        return
-                        	}
-                        	defer conn.Close()
-                        	replicateHandler := messages.NewMessageHandler(conn)
-				chunkUploadMessage := messages.Chunk{Fullpath: msg.Chunk.GetFullpath(), Order: order, Checksum: chunkChecksum[:], Size: size, Content: content}
-                                chunkWrap := &messages.Wrapper{
-                                        Msg: &messages.Wrapper_Chunk{Chunk: &chunkUploadMessage},
-                                }
-                                replicateHandler.Send(chunkWrap)
+                                replicateHandler := messages.NewMessageHandler(conn)
+				replicateHandler.Send(wrapper)
+
+				// replicas := msg.Chunk.GetReplicanodename()
+				// conn, err := net.Dial("tcp", replicas[0])
+				// if err != nil {
+                                //         log.Fatalln(err.Error())
+                                //         return
+                                // }
+                                // defer conn.Close()
+				// length := len(replicas)
+				// if length == 0 {
+				// 	break
+				// }
+				// replicateHandler := messages.NewMessageHandler(conn)
+				// replicas = append(replicas[:0], replicas[length-1:]...)
+				// chunkMessage := messages.Chunk{Fullpath: msg.Chunk.GetFullpath(), Order: order, Checksum: chunkChecksum[:], Size: size, Content: content, Replicanodename: replicas}
+				// chunkWrap := &messages.Wrapper{
+                                //         Msg: &messages.Wrapper_Chunk{Chunk: &chunkMessage},
+                                // }
+                                // replicateHandler.Send(chunkWrap)
 			}
 			
                 case nil:
