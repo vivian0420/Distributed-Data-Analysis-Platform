@@ -19,7 +19,8 @@ message Chunk {
     uint64 size = 4;
     bytes content = 5;
     repeated string replicanodename = 6;
-    string hostname = 7;
+    string action = 7;
+
 }
 
 message Status {
