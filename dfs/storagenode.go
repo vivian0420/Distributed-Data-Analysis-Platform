@@ -1,5 +1,4 @@
 package main
-
 import (
 	"os"
 	"log"
@@ -30,9 +29,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
+	
+	//go handleController(msgHandler)
         go handleHeartBeat(msgHandler, thisHostName + os.Args[3])   
-    
+
         //establish server socket for listenning from clients
 	listener, err := net.Listen("tcp", os.Args[3])
         if err != nil {
@@ -42,13 +42,32 @@ func main() {
         for {
                 if conn, err := listener.Accept(); err == nil {
                         clientHandler := messages.NewMessageHandler(conn)
-                        go handleClient(clientHandler,  msgHandler, thisHostName + os.Args[3])
+                        go handleClient(clientHandler, thisHostName + os.Args[3])
                 }
         }
 	
 
 }
-
+/*
+func handleController(msgHandler *messages.MessageHandler) {
+	defer msgHandler.Close()
+        for {
+        	wrapper, _ := msgHandler.Receive()
+		if wrapper.GetFile().GetAction() == "delete" {
+			path := filepath.Join(os.Args[1], wrapper.GetFile().GetFullpath())
+			log.Println("path: ", path)
+			_, err := os.Stat(path)
+                        if os.IsExist(err) {
+				log.Println("I  existed")
+				e := os.RemoveAll(path)
+    				if e != nil {
+        				log.Fatal(e)
+    				}
+			}
+		}
+	}
+}
+*/
 func handleHeartBeat(msgHandler *messages.MessageHandler, thisHostName string) {
 	ticker := time.NewTicker(5 * time.Second)
 	for {
@@ -67,7 +86,7 @@ func handleHeartBeat(msgHandler *messages.MessageHandler, thisHostName string) {
 	}
 }
 
-func handleClient(clientHandler *messages.MessageHandler, msgHandler *messages.MessageHandler, thisHostName string) {
+func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 	defer clientHandler.Close()
          for {
                 wrapper, _ := clientHandler.Receive()
@@ -146,7 +165,6 @@ func handleClient(clientHandler *messages.MessageHandler, msgHandler *messages.M
 			} else if action == "get" {
 				order := msg.Chunk.GetOrder()
 				chunkPath := filepath.Join(os.Args[1], msg.Chunk.GetFullpath(), fmt.Sprintf("chunk-%d", order))
-                                log.Println("chunkPath:", chunkPath)
 				chunk, err := ioutil.ReadFile(chunkPath)
 				if err != nil {
       					log.Printf("Could not open the chunk due to this %s error \n", err)
@@ -157,7 +175,20 @@ func handleClient(clientHandler *messages.MessageHandler, msgHandler *messages.M
                                 }
                                 clientHandler.Send(wrap)
 			}
-
+		case  *messages.Wrapper_File:
+			if msg.File.GetAction() == "delete" {
+                        	path := filepath.Join(os.Args[1], wrapper.GetFile().GetFullpath())
+                        	log.Println("path: ", path)
+                        	//_, err := os.Stat(path)
+				
+                        	//if os.IsExist(err) {
+                                	log.Println("I  existed")
+                                	e := os.RemoveAll(path)
+                                	if e != nil {
+                                	        log.Fatal(e)
+                                	}
+                        	//}
+                	}
 			
                 case nil:
                         //log.Println("Received an empty message, terminating client ")

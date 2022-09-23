@@ -37,6 +37,13 @@ func handleClient(msgHandler *messages.MessageHandler) {
 			if action == "put" {
 				handleClientPut(msgHandler, msg)
 			} else if action == "get" {
+				in, err := ioutil.ReadFile(DFSController)
+        			if err != nil {
+        			        log.Fatalln("Error reading file:", err)
+        			}
+        			if err := proto.Unmarshal(in, files); err != nil {
+        			        log.Fatalln("Failed to parse Files:", err)
+        			}
 				approved := false
 				for _, f := range files.GetFiles() {
                 			if f.GetFullpath() == msg.File.GetFullpath() {
@@ -58,6 +65,48 @@ func handleClient(msgHandler *messages.MessageHandler) {
                         		return
 				}
 				
+			} else if action == "delete" {
+				in, err := ioutil.ReadFile(DFSController)
+                                if err != nil {
+                                        log.Fatalln("Error reading file:", err)
+                                }
+                                if err := proto.Unmarshal(in, files); err != nil {
+                                        log.Fatalln("Failed to parse Files:", err)
+                                }
+				approved := false
+                                var index int
+                                for i, f := range files.GetFiles() {
+                                        if f.GetFullpath() == msg.File.GetFullpath() {
+                                                approved  = true
+						for nodeName := range activedNodes {
+							conn, err := net.Dial("tcp", nodeName)
+        						if err != nil {
+                						log.Fatalln(err.Error())
+                						return
+        						}
+        						defer conn.Close()
+							storageNodeHandler := messages.NewMessageHandler(conn)
+							fileMessage := messages.File{Fullpath: msg.File.GetFullpath(), Action: action}
+							wrap := &messages.Wrapper {
+                                                        	Msg: &messages.Wrapper_File{File: &fileMessage},
+                                                	}
+                                                	storageNodeHandler.Send(wrap)
+						}
+						index = i
+                                                break
+                                        }
+                                }
+                                files.Files = append(files.Files[:index], files.Files[index+1:]...)
+				out, _ := proto.Marshal(files)
+        			if err := ioutil.WriteFile(DFSController, out, 0644); err != nil {
+                			log.Fatalln("Failed to write Files:", err)
+        			}
+				log.Println("Approved: ", approved)
+                                file := messages.File{Approved: approved}
+                                wrap := &messages.Wrapper {
+                                	Msg: &messages.Wrapper_File{File: &file},
+                               	}
+                                msgHandler.Send(wrap)
 			}
 		case nil:
 			continue
