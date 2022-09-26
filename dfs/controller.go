@@ -8,6 +8,7 @@ import(
 	"time"
 	"math/rand"
 	"io/ioutil"
+	"strings"
 	"google.golang.org/protobuf/proto"
 
 )
@@ -47,6 +48,7 @@ func handleClient(msgHandler *messages.MessageHandler) {
 				approved := false
 				for _, f := range files.GetFiles() {
                 			if f.GetFullpath() == msg.File.GetFullpath() {
+						log.Println(f.GetChecksum())
 						approved  = true
                                                 f.Approved = true
                         			wrap := &messages.Wrapper {
@@ -76,7 +78,7 @@ func handleClient(msgHandler *messages.MessageHandler) {
 				approved := false
                                 var index int
                                 for i, f := range files.GetFiles() {
-                                        if f.GetFullpath() == msg.File.GetFullpath() {
+                                        if f.GetFullpath() == msg.File.GetFullpath() || strings.HasPrefix(f.GetFullpath(), msg.File.GetFullpath()+"/") {
                                                 approved  = true
 						for nodeName := range activedNodes {
 							conn, err := net.Dial("tcp", nodeName)
@@ -107,6 +109,43 @@ func handleClient(msgHandler *messages.MessageHandler) {
                                 	Msg: &messages.Wrapper_File{File: &file},
                                	}
                                 msgHandler.Send(wrap)
+			} else if action == "ls" {
+				in, err := ioutil.ReadFile(DFSController)
+                                if err != nil {
+                                        log.Fatalln("Error reading file:", err)
+                                }
+                                if err := proto.Unmarshal(in, files); err != nil {
+                                        log.Fatalln("Failed to parse Files:", err)
+                                }
+                                approved := false
+				for _, f := range files.GetFiles() {
+                                        if f.GetFullpath() == msg.File.GetFullpath() {
+                                                approved  = true
+						wrap := &messages.Wrapper {
+                                                        Msg: &messages.Wrapper_File{File: f},
+                                                }
+                                                msgHandler.Send(wrap)
+						break
+					}
+				}
+				if approved == false {
+                                       file := messages.File{Approved: false}
+                                       wrap := &messages.Wrapper {
+                                               Msg: &messages.Wrapper_File{File: &file},
+                                       }
+                                       msgHandler.Send(wrap)
+				}
+			} else if action == "listnode" {
+				var hosts []*messages.Host
+				for k, v := range activedNodes {
+					host := messages.Host{Name: k, Freespace: v.freeSpace, Requests: v.requests}
+					hosts = append(hosts, &host)
+				}
+				hostsMessage := messages.Hosts{Hosts: hosts}
+				wrap := &messages.Wrapper {
+                           		Msg: &messages.Wrapper_Hosts{Hosts: &hostsMessage},
+                                }
+				msgHandler.Send(wrap)
 			}
 		case nil:
 			continue
@@ -188,7 +227,7 @@ func handleClientPut(msgHandler *messages.MessageHandler, msg *messages.Wrapper_
 	}
 	log.Println("approved: ",approved)
 	chunkAmount := int(msg.File.GetChunkamount())
-        file := messages.File{Fullpath: msg.File.GetFullpath(), Approved: true, Chunkamount: msg.File.GetChunkamount()}
+        file := messages.File{Fullpath: msg.File.GetFullpath(), Approved: true, Size: msg.File.GetSize(), Chunkamount: msg.File.GetChunkamount(), Checksum: msg.File.GetChecksum()}
 	for i := 0; i < chunkAmount; i++ {
                 chunk := messages.Chunk{Fullpath: file.GetFullpath(), Order: uint64(i)}
                 for node, _ := range getRandomNodes() {

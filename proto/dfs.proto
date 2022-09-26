@@ -45,14 +45,12 @@ message Files {
 
 message Host {
     string name = 1;
+    uint64 freespace = 2;
+    uint64 requests = 3;
 }
 
 message Hosts {
     repeated Host hosts = 1;
-}
-
-message Approbation {
-    bool approved = 1;
 }
 
 message HeartBeat {
@@ -69,9 +67,8 @@ message Wrapper {
         Chunk chunk = 4;
         HeartBeat heartbeat = 5;
         Hosts hosts = 6;
-	Approbation approbation = 7;
-	Replica replica = 8;
-	Status status = 9;
+	Replica replica = 7;
+	Status status = 8;
     }
 }
 

@@ -48,26 +48,7 @@ func main() {
 	
 
 }
-/*
-func handleController(msgHandler *messages.MessageHandler) {
-	defer msgHandler.Close()
-        for {
-        	wrapper, _ := msgHandler.Receive()
-		if wrapper.GetFile().GetAction() == "delete" {
-			path := filepath.Join(os.Args[1], wrapper.GetFile().GetFullpath())
-			log.Println("path: ", path)
-			_, err := os.Stat(path)
-                        if os.IsExist(err) {
-				log.Println("I  existed")
-				e := os.RemoveAll(path)
-    				if e != nil {
-        				log.Fatal(e)
-    				}
-			}
-		}
-	}
-}
-*/
+
 func handleHeartBeat(msgHandler *messages.MessageHandler, thisHostName string) {
 	ticker := time.NewTicker(5 * time.Second)
 	for {
@@ -94,6 +75,7 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 		case *messages.Wrapper_Chunk:
 			action := msg.Chunk.GetAction()
 			if action == "put" {
+				numOfRequests++
 				path := filepath.Join(os.Args[1], msg.Chunk.GetFullpath())
 				_, err := os.Stat(path)
 				if os.IsNotExist(err) {
@@ -105,10 +87,7 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 				content := msg.Chunk.GetContent()
 				checksumProvided := msg.Chunk.GetChecksum()
 				//Create a new file for chunk. Path is the file's path + chunk's order
-                                log.Println("order", order)
-                                log.Println("string(order)", string(order))
 				chunkPath := filepath.Join(path, fmt.Sprintf("chunk-%d", order))
-                                log.Println("chunkPath", chunkPath)
 				err = os.WriteFile(chunkPath, content, 0644)
 		        	if err != nil {
                 			log.Fatal(err)
@@ -150,7 +129,6 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 						}
 					}
                         	        if index == len(replicates) - 1 {
-						log.Println("Last node, no need to replicate")
 						return
 					}
 					toReplicate := replicates[index + 1]
@@ -163,6 +141,7 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 					replicateHandler.Send(wrapper)
 				}
 			} else if action == "get" {
+				numOfRequests++
 				order := msg.Chunk.GetOrder()
 				chunkPath := filepath.Join(os.Args[1], msg.Chunk.GetFullpath(), fmt.Sprintf("chunk-%d", order))
 				chunk, err := ioutil.ReadFile(chunkPath)
@@ -177,17 +156,12 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 			}
 		case  *messages.Wrapper_File:
 			if msg.File.GetAction() == "delete" {
+				numOfRequests++
                         	path := filepath.Join(os.Args[1], wrapper.GetFile().GetFullpath())
-                        	log.Println("path: ", path)
-                        	//_, err := os.Stat(path)
-				
-                        	//if os.IsExist(err) {
-                                	log.Println("I  existed")
-                                	e := os.RemoveAll(path)
-                                	if e != nil {
-                                	        log.Fatal(e)
-                                	}
-                        	//}
+                                e := os.RemoveAll(path)
+                                if e != nil {
+                                	log.Fatal(e)
+                                }
                 	}
 			
                 case nil:

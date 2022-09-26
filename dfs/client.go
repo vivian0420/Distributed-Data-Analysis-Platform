@@ -2,12 +2,14 @@ package main
 
 import (
 	"log"
+	"fmt"
 	"net"
 	"os"
 	"io"
 	"dfs/messages"
 	"crypto/md5"
         "math"
+	"bytes"
 	"sync"
 )
 //wg sync.WaitGroup -----> https://stackoverflow.com/questions/18207772/how-to-wait-for-all-goroutines-to-finish-without-using-time-sleep
@@ -88,33 +90,54 @@ func handleGetFile(msgHandler *messages.MessageHandler) {
             return
         }	
 	file, err := os.Create(os.Args[4])
-        log.Println("GetSize", wrapper.GetFile().GetSize())
     	defer file.Close()
     	if err != nil {
-        	log.Fatal(err)
+        	log.Fatalln(err)
     	}
-	//chunkAmount := wrapper.GetFile().GetChunkamount()
 	chunks := wrapper.GetFile().GetChunks()	
-	//checkSum := wrapper.GetFile().GetChecksum()
+	providedCheckSum := wrapper.GetFile().GetChecksum()
 	for i := 0; i < len(chunks); i++ {
 		wg.Add(1)
 		go handleChunkDownload(chunks[i])
 	}
 	wg.Wait()
-	//todo: checksum
+	//validate checksum
+	wholeFile, err := os.Open(os.Args[4])
+        if err != nil {
+                log.Fatal(err)
+        }
+        defer wholeFile.Close()
+	h := md5.New()
+        if _, err := io.Copy(h, wholeFile); err != nil {
+                log.Fatal(err)
+        }
+        fileChecksum := h.Sum(nil)
+	res := bytes.Compare(providedCheckSum, fileChecksum) 
+	if res == 0 {
+		log.Printf("Download file %s successfully", os.Args[3])
+	} else {
+		log.Printf("Failed to download file %s.", os.Args[3])
+	}
 	
 
 }
 
 func handleChunkDownload(chunk *messages.Chunk){
 	defer wg.Done()
-	conn, err := net.Dial("tcp", chunk.Replicanodename[0])
-	if err != nil {
-                log.Fatalln(err.Error())
-                return
-        }
-        defer conn.Close()
-	downloadHandler := messages.NewMessageHandler(conn)
+	var toConn net.Conn
+	for i := 0; i < len(chunk.Replicanodename); i++ {
+		conn, err := net.Dial("tcp", chunk.Replicanodename[i])
+		if err == nil {
+			toConn = conn
+			defer conn.Close()
+			break;
+		}
+		if i == len(chunk.Replicanodename) - 1 && err != nil {
+			log.Fatalln(err)
+			return
+		}	 
+	}
+	downloadHandler := messages.NewMessageHandler(toConn)
 	chunkMessage := messages.Chunk{Fullpath: chunk.GetFullpath(), Order: chunk.GetOrder(), Action: "get"}
 	wrap := &messages.Wrapper{
                 Msg: &messages.Wrapper_Chunk{Chunk: &chunkMessage},
@@ -144,33 +167,45 @@ func handleDeleteFile(msgHandler *messages.MessageHandler) {
             log.Println("File does not existed")
             return
         }
-	/*
-	chunks := wrapper.GetFile().GetChunks()
-	for i := 0; i < len(chunks); i++ {
-                wg.Add(1)
-                go handleChunkDelete(chunks[i])
-        }
-        wg.Wait()
-	*/
 }
 
-/*
-func handleChunkDelete(chunk *messages.Chunk) {
-	defer wg.Done()
-        conn, err := net.Dial("tcp", chunk.Replicanodename[0])
-        if err != nil {
-                log.Fatalln(err.Error())
-                return
-        }
-        defer conn.Close()
-	deleteHandler := messages.NewMessageHandler(conn)
-	chunkMessage := messages.Chunk{Fullpath: chunk.GetFullpath(), Order: chunk.GetOrder(), Action: "delete"}
+func handleListFile(msgHandler *messages.MessageHandler) {
+	fileMessage := messages.File{Fullpath: os.Args[3], Action: os.Args[2]}
 	wrap := &messages.Wrapper{
-                Msg: &messages.Wrapper_Chunk{Chunk: &chunkMessage},
+                Msg: &messages.Wrapper_File{File: &fileMessage},
         }
-        deleteHandler.Send(wrap)	
+        msgHandler.Send(wrap)
+	wrapper, _ := msgHandler.Receive()
+        if !wrapper.GetFile().GetApproved() {
+            log.Println("File does not existed")
+            return
+        } else {
+	    fmt.Println("--------------------File info--------------------")
+	    fmt.Println("File name: ", wrapper.GetFile().GetFullpath())
+	    fmt.Println("File size: ", wrapper.GetFile().GetSize())
+	    fmt.Println("File checksum: ", wrapper.GetFile().GetChecksum()) 
+	    fmt.Println("File chunks amount: ", wrapper.GetFile().GetChunkamount())
+	    for i, chunk := range wrapper.GetFile().GetChunks() {
+		fmt.Printf("File chunk%d: %s\n", i, chunk.GetReplicanodename())
+	    }	   	
+	}
 }
-*/
+
+func handleListNode(msgHandler *messages.MessageHandler) {
+	fileMessage := messages.File{Action: os.Args[2]}
+	wrap := &messages.Wrapper{
+                Msg: &messages.Wrapper_File{File: &fileMessage},
+        }
+        msgHandler.Send(wrap)
+	wrapper, _ := msgHandler.Receive()
+	hosts := wrapper.GetHosts().GetHosts()
+	for i, host := range hosts {
+		fmt.Printf("----------Host%d----------\n", i)
+		fmt.Println("Host name: ", host.GetName())
+		fmt.Println("Free space: ", host.GetFreespace())
+		fmt.Println("Requests: ", host.GetRequests())
+	}
+}
 
 func main() {
 	host := os.Args[1]
@@ -192,9 +227,9 @@ func main() {
 		handleDeleteFile(msgHandler)
    		return
 	} else if os.Args[2] == "ls" {
-		fileMessage = messages.File{Fullpath: os.Args[3], Action: os.Args[2]}
+		handleListFile(msgHandler)
 	} else if os.Args[2] == "listnode" {
-		fileMessage = messages.File{Action: os.Args[2]}
+		handleListNode(msgHandler)
 	} else {
 		log.Println("Invalid action: ", os.Args[2])
 		return
