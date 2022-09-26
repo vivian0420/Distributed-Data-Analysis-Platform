@@ -176,18 +176,14 @@ func handleListFile(msgHandler *messages.MessageHandler) {
         }
         msgHandler.Send(wrap)
 	wrapper, _ := msgHandler.Receive()
-        if !wrapper.GetFile().GetApproved() {
-            log.Println("File does not existed")
-            return
+        if !wrapper.GetFiles().GetApproved() {
+        	log.Println("File does not existed")
+            	return
         } else {
-	    fmt.Println("--------------------File info--------------------")
-	    fmt.Println("File name: ", wrapper.GetFile().GetFullpath())
-	    fmt.Println("File size: ", wrapper.GetFile().GetSize())
-	    fmt.Println("File checksum: ", wrapper.GetFile().GetChecksum()) 
-	    fmt.Println("File chunks amount: ", wrapper.GetFile().GetChunkamount())
-	    for i, chunk := range wrapper.GetFile().GetChunks() {
-		fmt.Printf("File chunk%d: %s\n", i, chunk.GetReplicanodename())
-	    }	   	
+		files := wrapper.GetFiles().GetFiles()
+		for _, file := range files {
+			fmt.Println(file.GetFullpath())
+		}
 	}
 }
 

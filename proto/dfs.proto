@@ -41,6 +41,7 @@ message Replica {
 
 message Files {
     repeated File files = 1;
+    bool approved = 2;
 }
 
 message Host {

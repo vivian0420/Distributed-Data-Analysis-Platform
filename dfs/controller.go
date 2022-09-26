@@ -9,6 +9,7 @@ import(
 	"math/rand"
 	"io/ioutil"
 	"strings"
+	"path"
 	"google.golang.org/protobuf/proto"
 
 )
@@ -118,23 +119,32 @@ func handleClient(msgHandler *messages.MessageHandler) {
                                         log.Fatalln("Failed to parse Files:", err)
                                 }
                                 approved := false
+				var listofFiles []*messages.File
 				for _, f := range files.GetFiles() {
                                         if f.GetFullpath() == msg.File.GetFullpath() {
                                                 approved  = true
-						wrap := &messages.Wrapper {
-                                                        Msg: &messages.Wrapper_File{File: f},
-                                                }
-                                                msgHandler.Send(wrap)
-						break
+						//name := strings.Replace(f.GetFullpath(), "/", "", 1)
+						file := messages.File{Fullpath: path.Base(f.GetFullpath())}
+						listofFiles = append(listofFiles, &file)
+					} else if strings.HasPrefix(f.GetFullpath(), msg.File.GetFullpath()+"/") {
+						approved  = true
+						name := strings.Replace(f.GetFullpath(), msg.File.GetFullpath()+"/", "", 1)
+						fileName := strings.Split(name, "/")[0]
+						file := messages.File{Fullpath: fileName}
+						listofFiles = append(listofFiles, &file)
 					}
 				}
+				var filesMessage messages.Files 
 				if approved == false {
-                                       file := messages.File{Approved: false}
-                                       wrap := &messages.Wrapper {
-                                               Msg: &messages.Wrapper_File{File: &file},
-                                       }
-                                       msgHandler.Send(wrap)
+                                       filesMessage = messages.Files{Approved: false}
+                                } else {
+					filesMessage = messages.Files{Approved: true, Files: listofFiles}
 				}
+				wrap := &messages.Wrapper {
+                                	Msg: &messages.Wrapper_Files{Files: &filesMessage},
+                                }
+                                msgHandler.Send(wrap)
+
 			} else if action == "listnode" {
 				var hosts []*messages.Host
 				for k, v := range activedNodes {
