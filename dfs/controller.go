@@ -49,7 +49,6 @@ func handleClient(msgHandler *messages.MessageHandler) {
 				approved := false
 				for _, f := range files.GetFiles() {
                 			if f.GetFullpath() == msg.File.GetFullpath() {
-						log.Println(f.GetChecksum())
 						approved  = true
                                                 f.Approved = true
                         			wrap := &messages.Wrapper {
@@ -237,7 +236,7 @@ func handleClientPut(msgHandler *messages.MessageHandler, msg *messages.Wrapper_
 	}
 	log.Println("approved: ",approved)
 	chunkAmount := int(msg.File.GetChunkamount())
-        file := messages.File{Fullpath: msg.File.GetFullpath(), Approved: true, Size: msg.File.GetSize(), Chunkamount: msg.File.GetChunkamount(), Checksum: msg.File.GetChecksum()}
+        file := messages.File{Fullpath: msg.File.GetFullpath(), Approved: true, Size: msg.File.GetSize(), Chunksize: msg.File.GetChunksize(), Chunkamount: msg.File.GetChunkamount(), Checksum: msg.File.GetChecksum()}
 	for i := 0; i < chunkAmount; i++ {
                 chunk := messages.Chunk{Fullpath: file.GetFullpath(), Order: uint64(i)}
                 for node, _ := range getRandomNodes() {

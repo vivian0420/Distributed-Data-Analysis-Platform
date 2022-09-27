@@ -10,6 +10,7 @@ message File {
     uint64 chunkamount = 5;
     repeated Chunk chunks = 6;
     bool approved = 7;
+    uint64 chunksize = 8;
 }
 
 message Chunk {
@@ -20,7 +21,6 @@ message Chunk {
     bytes content = 5;
     repeated string replicanodename = 6;
     string action = 7;
-
 }
 
 message Status {
