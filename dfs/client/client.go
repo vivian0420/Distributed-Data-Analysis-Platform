@@ -53,7 +53,7 @@ func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string, 
 
 }
 
-func handlePutFile(msgHandler *messages.MessageHandler, fileMessage messages.File) {
+func handlePutFile(msgHandler *messages.MessageHandler) {
 	file, err := os.Open(os.Args[3])
 	if err != nil {
 		log.Fatal(err)
@@ -71,7 +71,7 @@ func handlePutFile(msgHandler *messages.MessageHandler, fileMessage messages.Fil
 	checksum := h.Sum(nil)
 	intchunksize, _ := strconv.Atoi(os.Args[5])
 	chunkAmount := math.Ceil(float64(size) / float64(intchunksize))
-	fileMessage = messages.File{Fullpath: os.Args[4], Checksum: checksum, Size: size, Chunksize: uint64(intchunksize), Chunkamount: uint64(chunkAmount), Action: os.Args[2]}
+	fileMessage := messages.File{Fullpath: os.Args[4], Checksum: checksum, Size: size, Chunksize: uint64(intchunksize), Chunkamount: uint64(chunkAmount), Action: os.Args[2]}
 	wrap := &messages.Wrapper{
 		Msg: &messages.Wrapper_File{File: &fileMessage},
 	}
@@ -93,10 +93,10 @@ func handleGetFile(msgHandler *messages.MessageHandler) {
 		return
 	}
 	file, err := os.Create(os.Args[4])
-	defer file.Close()
 	if err != nil {
 		log.Fatalln(err)
 	}
+	defer file.Close()
 	chunks := wrapper.GetFile().GetChunks()
 	chunkSize := wrapper.GetFile().GetChunksize()
 	providedCheckSum := wrapper.GetFile().GetChecksum()
@@ -215,9 +215,8 @@ func main() {
 	}
 	defer conn.Close()
 	msgHandler := messages.NewMessageHandler(conn)
-	fileMessage := messages.File{}
 	if os.Args[2] == "put" {
-		handlePutFile(msgHandler, fileMessage)
+		handlePutFile(msgHandler)
 	} else if os.Args[2] == "get" {
 		handleGetFile(msgHandler)
 	} else if os.Args[2] == "delete" {

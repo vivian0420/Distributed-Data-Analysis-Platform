@@ -101,7 +101,7 @@ func handleClientLs(msg *messages.Wrapper_File, msgHandler *messages.MessageHand
 		}
 	}
 	var filesMessage messages.Files
-	if approved == false {
+	if !approved {
 		filesMessage = messages.Files{Approved: false}
 	} else {
 		filesMessage = messages.Files{Approved: true, Files: listofFiles}
@@ -177,23 +177,13 @@ func handleClientGet(msg *messages.Wrapper_File, msgHandler *messages.MessageHan
 			break
 		}
 	}
-	if approved == false {
+	if !approved {
 		file := messages.File{Approved: false}
 		wrap := &messages.Wrapper{
 			Msg: &messages.Wrapper_File{File: &file},
 		}
 		msgHandler.Send(wrap)
 	}
-}
-
-func contains(hosts []*messages.Host, name string) bool {
-	for _, v := range hosts {
-		if v.GetName() == name {
-			return true
-		}
-	}
-
-	return false
 }
 
 func getRandomNodes() map[string]bool {
@@ -223,15 +213,11 @@ func getRandomNodes() map[string]bool {
 }
 
 func checkLiveness() {
-	ticker := time.NewTicker(5 * time.Second)
-	for {
-		select {
-		case <-ticker.C:
-			for name, info := range activedNodes {
-				if time.Now().Unix()-info.timeStamp > 15 {
-					log.Println("Lost connection with node: ", name)
-					delete(activedNodes, name)
-				}
+	for range time.Tick(5 * time.Second) {
+		for name, info := range activedNodes {
+			if time.Now().Unix()-info.timeStamp > 15 {
+				log.Println("Lost connection with node: ", name)
+				delete(activedNodes, name)
 			}
 		}
 	}
@@ -261,7 +247,7 @@ func handleClientPut(msgHandler *messages.MessageHandler, msg *messages.Wrapper_
 	file := messages.File{Fullpath: msg.File.GetFullpath(), Approved: true, Size: msg.File.GetSize(), Chunksize: msg.File.GetChunksize(), Chunkamount: msg.File.GetChunkamount(), Checksum: msg.File.GetChecksum()}
 	for i := 0; i < chunkAmount; i++ {
 		chunk := messages.Chunk{Fullpath: file.GetFullpath(), Order: uint64(i)}
-		for node, _ := range getRandomNodes() {
+		for node := range getRandomNodes() {
 			chunk.Replicanodename = append(chunk.Replicanodename, node)
 		}
 		file.Chunks = append(file.Chunks, &chunk)
