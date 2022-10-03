@@ -11,6 +11,7 @@ import(
 	"strings"
 	"path"
 	"google.golang.org/protobuf/proto"
+	"sync"
 
 )
 
@@ -22,6 +23,7 @@ type activednode struct {
 
 
 var activedNodes = make(map[string] activednode)
+var l = sync.Mutex{}
 const DFSController = "dfs-controller.bin"
 var files = &messages.Files{}
 
@@ -33,7 +35,9 @@ func handleClient(msgHandler *messages.MessageHandler) {
                 case *messages.Wrapper_Heartbeat:
 			nodeName := msg.Heartbeat.GetName()
 			node := activednode{msg.Heartbeat.GetFreeSpace(),  msg.Heartbeat.GetRequests(),  time.Now().Unix()}
+			l.Lock()
 			activedNodes[nodeName] = node
+			l.Unlock()
 		case *messages.Wrapper_File:
 			action := msg.File.GetAction()
 			if action == "put" {
