@@ -184,8 +184,14 @@ func handleListFile(msgHandler *messages.MessageHandler) {
 		return
 	} else {
 		files := wrapper.GetFiles().GetFiles()
+		uniqueMap := make(map[string]bool)
 		for _, file := range files {
-			fmt.Println(file.GetFullpath())
+			_, ok := uniqueMap[file.GetFullpath()]
+			if !ok {
+				fmt.Println(file.GetFullpath())
+				uniqueMap[file.GetFullpath()] = true
+			}
+
 		}
 	}
 }

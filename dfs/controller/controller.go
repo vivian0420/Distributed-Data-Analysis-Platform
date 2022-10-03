@@ -98,6 +98,12 @@ func handleClientLs(msg *messages.Wrapper_File, msgHandler *messages.MessageHand
 			fileName := strings.Split(name, "/")[0]
 			file := messages.File{Fullpath: fileName}
 			listofFiles = append(listofFiles, &file)
+		} else if strings.HasPrefix(f.GetFullpath(), msg.File.GetFullpath()) {
+			approved = true
+			name := strings.Replace(f.GetFullpath(), msg.File.GetFullpath(), "", 1)
+			fileName := strings.Split(name, "/")[0]
+			file := messages.File{Fullpath: fileName}
+			listofFiles = append(listofFiles, &file)
 		}
 	}
 	var filesMessage messages.Files
