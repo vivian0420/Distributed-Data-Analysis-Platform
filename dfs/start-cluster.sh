@@ -18,7 +18,7 @@ echo "Starting Controller..."
 ssh "${controller}" "${HOME}/go/bin/controller" &> "${log_dir}/controller.log" &
 
 # give 5 seconds for controller to fully start
-sleep 5
+sleep 2
 
 echo "Starting Storage Nodes..."
 for node in ${nodes[@]}; do
