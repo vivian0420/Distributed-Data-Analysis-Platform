@@ -207,7 +207,7 @@ func handleListNode(msgHandler *messages.MessageHandler) {
 
 func main() {
 	host := os.Args[1]
-        conn, err := net.Dial("tcp", host+":8080") 
+        conn, err := net.Dial("tcp", host+":20100") 
         if err != nil {
                 log.Fatalln(err.Error())
                 return

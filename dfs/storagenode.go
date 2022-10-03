@@ -18,7 +18,7 @@ var numOfRequests uint64 = 0
 func main() {
         host := os.Args[2]  //controller hostname
         //connect to controller
-        conn, err := net.Dial("tcp", host+":8080") 
+        conn, err := net.Dial("tcp", host+":20100") 
         if err != nil {
                 log.Fatalln(err.Error())
                 return
