@@ -26,7 +26,7 @@ The whole implementation is done in Go. Communication between components is impl
 
 *Uploading a file to the DFS system:*
 ```
-go run client.go <controller-hostname> put <source-file-path-in-local> <destination-path-in-controller> <chunk-size(int)>
+go run client/client.go <controller-hostname> put <source-file-path-in-local> <destination-path-in-controller> <chunk-size(int)>
 ```
 ### diagram:
 ![Image](https://user-images.githubusercontent.com/86545567/193107610-183d6af4-7920-485e-b251-678426347dd1.png)
@@ -41,7 +41,7 @@ go run client.go <controller-hostname> put <source-file-path-in-local> <destinat
 
 *Downloading a file from the DFS system:*
 ```
-go run client.go <controller-hostname> get <source-file-path-in-controller> <destination-path-in-local>
+go run client/client.go <controller-hostname> get <source-file-path-in-controller> <destination-path-in-local>
 ```
 
 ### diagram:
@@ -56,7 +56,7 @@ go run client.go <controller-hostname> get <source-file-path-in-controller> <des
 
 *Downloading a file from the DFS system:*
 ```
-go run client.go <controller-hostname> delete <target-file-path-in-controller>
+go run client/client.go <controller-hostname> delete <target-file-path-in-controller>
 ```
 ### diagram:
 ![Image](https://user-images.githubusercontent.com/86545567/193118319-b68549b5-c1ac-4d44-b133-60a93fe27076.png)
@@ -69,7 +69,7 @@ go run client.go <controller-hostname> delete <target-file-path-in-controller>
 
 *Browsing the file system tree:*
 ```
-go run client.go <controller-hostname> ls <target-path-in-controller>
+go run client/client.go <controller-hostname> ls <target-path-in-controller>
 ```
 
 ### 5. Viewing the activated node list
@@ -80,18 +80,18 @@ go run client.go <controller-hostname> ls <target-path-in-controller>
 
 *Viewing the activated node list:*
 ```
-go run client.go <controller-hostname> listnode
+go run client/client.go <controller-hostname> listnode
 ```
 
 
 ## Additional Notes:
-1.Start Controller by running:
+1.Start cluster by running:
 ```
-go run controller.go
+./start-cluster.sh
 ```
 
-2.Start Storage node by running:
+2.Stop cluster by running:
 ```
-go run storagenode.go <Storage path> <controller-hostname> <:Storagenode-port>
+./stop-cluster.sh
 ```
 
