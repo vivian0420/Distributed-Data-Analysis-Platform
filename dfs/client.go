@@ -1,28 +1,29 @@
 package main
 
 import (
-	"log"
+	"bytes"
+	"crypto/md5"
+	"dfs/messages"
 	"fmt"
+	"io"
+	"log"
+	"math"
 	"net"
 	"os"
-	"io"
-	"dfs/messages"
-	"crypto/md5"
-        "math"
 	"strconv"
-	"bytes"
 	"sync"
 )
+
 //wg sync.WaitGroup -----> https://stackoverflow.com/questions/18207772/how-to-wait-for-all-goroutines-to-finish-without-using-time-sleep
 
 func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string, intchunksize int) {
 	defer msgHandler.Close()
 	order := uint64(0)
 	wrapper, _ := msgHandler.Receive()
-        if !wrapper.GetFile().GetApproved() {
-	    log.Println("File existed!!!!")
-            return
-        }
+	if !wrapper.GetFile().GetApproved() {
+		log.Println("File existed!!!!")
+		return
+	}
 	chunk := make([]byte, intchunksize)
 	file.Seek(0, 0)
 	for {
@@ -32,70 +33,71 @@ func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string, 
 				log.Println(err)
 			}
 			break
-	  	}
-		checksum := md5.Sum(chunk[:bytesread])
-                thisChunk := wrapper.GetFile().GetChunks()[order]
-                toConnect := thisChunk.GetReplicanodename()[0]
-                conn, err := net.Dial("tcp", toConnect)
-                if err != nil {
-			log.Fatalln("fail to connect to storage node: " + toConnect, err.Error())
-                        return
 		}
-                msgHandler = messages.NewMessageHandler(conn)
-                chunk := messages.Chunk{Fullpath: path, Order: order, Checksum: checksum[:], Size: uint64(bytesread), Action: "put", Content: chunk[:bytesread], Replicanodename: wrapper.GetFile().GetChunks()[order].GetReplicanodename()}
-                wrap := &messages.Wrapper {
+		checksum := md5.Sum(chunk[:bytesread])
+		thisChunk := wrapper.GetFile().GetChunks()[order]
+		toConnect := thisChunk.GetReplicanodename()[0]
+		conn, err := net.Dial("tcp", toConnect)
+		if err != nil {
+			log.Fatalln("fail to connect to storage node: "+toConnect, err.Error())
+			return
+		}
+		msgHandler = messages.NewMessageHandler(conn)
+		chunk := messages.Chunk{Fullpath: path, Order: order, Checksum: checksum[:], Size: uint64(bytesread), Action: "put", Content: chunk[:bytesread], Replicanodename: wrapper.GetFile().GetChunks()[order].GetReplicanodename()}
+		wrap := &messages.Wrapper{
 			Msg: &messages.Wrapper_Chunk{Chunk: &chunk},
 		}
-                msgHandler.Send(wrap)
-                order++
-        }
+		msgHandler.Send(wrap)
+		order++
+	}
 
 }
 
 func handlePutFile(msgHandler *messages.MessageHandler, fileMessage messages.File) {
 	file, err := os.Open(os.Args[3])
-        if err != nil {
+	if err != nil {
 		log.Fatal(err)
-        }
-        defer file.Close()
-        fi, err := file.Stat()
-        if err != nil {
+	}
+	defer file.Close()
+	fi, err := file.Stat()
+	if err != nil {
 		log.Fatal(err)
-       	}
-    	size := uint64(fi.Size())
-     	h := md5.New()
-     	if _, err := io.Copy(h, file); err != nil {
-        	log.Fatal(err)
-        }
-    	checksum := h.Sum(nil)
-        intchunksize, _ := strconv.Atoi(os.Args[5])
+	}
+	size := uint64(fi.Size())
+	h := md5.New()
+	if _, err := io.Copy(h, file); err != nil {
+		log.Fatal(err)
+	}
+	checksum := h.Sum(nil)
+	intchunksize, _ := strconv.Atoi(os.Args[5])
 	chunkAmount := math.Ceil(float64(size) / float64(intchunksize))
-     	fileMessage = messages.File{Fullpath: os.Args[4], Checksum: checksum, Size:size, Chunksize: uint64(intchunksize), Chunkamount: uint64(chunkAmount), Action: os.Args[2]}
-     	wrap := &messages.Wrapper{
-                Msg: &messages.Wrapper_File{File: &fileMessage},
-       	}
-     	msgHandler.Send(wrap)
-     	handlePut(msgHandler, file, os.Args[4], intchunksize)
+	fileMessage = messages.File{Fullpath: os.Args[4], Checksum: checksum, Size: size, Chunksize: uint64(intchunksize), Chunkamount: uint64(chunkAmount), Action: os.Args[2]}
+	wrap := &messages.Wrapper{
+		Msg: &messages.Wrapper_File{File: &fileMessage},
+	}
+	msgHandler.Send(wrap)
+	handlePut(msgHandler, file, os.Args[4], intchunksize)
 }
 
 var wg sync.WaitGroup
+
 func handleGetFile(msgHandler *messages.MessageHandler) {
 	fileMessage := messages.File{Fullpath: os.Args[3], Action: os.Args[2]}
 	wrap := &messages.Wrapper{
-                Msg: &messages.Wrapper_File{File: &fileMessage},
-        }
-        msgHandler.Send(wrap)
+		Msg: &messages.Wrapper_File{File: &fileMessage},
+	}
+	msgHandler.Send(wrap)
 	wrapper, _ := msgHandler.Receive()
 	if !wrapper.GetFile().GetApproved() {
-	    log.Println("File does not existed")
-            return
-        }	
+		log.Println("File does not existed")
+		return
+	}
 	file, err := os.Create(os.Args[4])
-    	defer file.Close()
-    	if err != nil {
-        	log.Fatalln(err)
-    	}
-	chunks := wrapper.GetFile().GetChunks()	
+	defer file.Close()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	chunks := wrapper.GetFile().GetChunks()
 	chunkSize := wrapper.GetFile().GetChunksize()
 	providedCheckSum := wrapper.GetFile().GetChecksum()
 	for i := 0; i < len(chunks); i++ {
@@ -105,26 +107,25 @@ func handleGetFile(msgHandler *messages.MessageHandler) {
 	wg.Wait()
 	//validate checksum
 	wholeFile, err := os.Open(os.Args[4])
-        if err != nil {
-                log.Fatal(err)
-        }
-        defer wholeFile.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer wholeFile.Close()
 	h := md5.New()
-        if _, err := io.Copy(h, wholeFile); err != nil {
-                log.Fatal(err)
-        }
-        fileChecksum := h.Sum(nil)
-	res := bytes.Compare(providedCheckSum, fileChecksum) 
+	if _, err := io.Copy(h, wholeFile); err != nil {
+		log.Fatal(err)
+	}
+	fileChecksum := h.Sum(nil)
+	res := bytes.Compare(providedCheckSum, fileChecksum)
 	if res == 0 {
 		log.Printf("Download file %s successfully", os.Args[3])
 	} else {
 		log.Printf("Failed to download file %s.", os.Args[3])
 	}
-	
 
 }
 
-func handleChunkDownload(chunk *messages.Chunk, chunkSize uint64){
+func handleChunkDownload(chunk *messages.Chunk, chunkSize uint64) {
 	defer wg.Done()
 	var toConn net.Conn
 	for i := 0; i < len(chunk.Replicanodename); i++ {
@@ -132,56 +133,56 @@ func handleChunkDownload(chunk *messages.Chunk, chunkSize uint64){
 		if err == nil {
 			toConn = conn
 			defer conn.Close()
-			break;
+			break
 		}
-		if i == len(chunk.Replicanodename) - 1 && err != nil {
+		if i == len(chunk.Replicanodename)-1 && err != nil {
 			log.Fatalln(err)
 			return
-		}	 
+		}
 	}
 	downloadHandler := messages.NewMessageHandler(toConn)
 	chunkMessage := messages.Chunk{Fullpath: chunk.GetFullpath(), Order: chunk.GetOrder(), Action: "get"}
 	wrap := &messages.Wrapper{
-                Msg: &messages.Wrapper_Chunk{Chunk: &chunkMessage},
-        }
-        downloadHandler.Send(wrap)
+		Msg: &messages.Wrapper_Chunk{Chunk: &chunkMessage},
+	}
+	downloadHandler.Send(wrap)
 	wrapper, _ := downloadHandler.Receive()
 	order := wrapper.GetChunk().GetOrder()
 	content := wrapper.GetChunk().GetContent()
 	skip := int64(chunkSize * order)
-        file, err := os.OpenFile(os.Args[4], os.O_WRONLY, 0644)
+	file, err := os.OpenFile(os.Args[4], os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal("OpenFile failed:", err)
-                return
+		return
 	}
 	file.Seek(skip, 0)
-        file.Write(content)
+	file.Write(content)
 }
 
 func handleDeleteFile(msgHandler *messages.MessageHandler) {
 	fileMessage := messages.File{Fullpath: os.Args[3], Action: os.Args[2]}
 	wrap := &messages.Wrapper{
-                Msg: &messages.Wrapper_File{File: &fileMessage},
-        }
-        msgHandler.Send(wrap)
-        wrapper, _ := msgHandler.Receive()
+		Msg: &messages.Wrapper_File{File: &fileMessage},
+	}
+	msgHandler.Send(wrap)
+	wrapper, _ := msgHandler.Receive()
 	if !wrapper.GetFile().GetApproved() {
-            log.Println("File does not existed")
-            return
-        }
+		log.Println("File does not existed")
+		return
+	}
 }
 
 func handleListFile(msgHandler *messages.MessageHandler) {
 	fileMessage := messages.File{Fullpath: os.Args[3], Action: os.Args[2]}
 	wrap := &messages.Wrapper{
-                Msg: &messages.Wrapper_File{File: &fileMessage},
-        }
-        msgHandler.Send(wrap)
+		Msg: &messages.Wrapper_File{File: &fileMessage},
+	}
+	msgHandler.Send(wrap)
 	wrapper, _ := msgHandler.Receive()
-        if !wrapper.GetFiles().GetApproved() {
-        	log.Println("File does not existed")
-            	return
-        } else {
+	if !wrapper.GetFiles().GetApproved() {
+		log.Println("File does not existed")
+		return
+	} else {
 		files := wrapper.GetFiles().GetFiles()
 		for _, file := range files {
 			fmt.Println(file.GetFullpath())
@@ -192,9 +193,9 @@ func handleListFile(msgHandler *messages.MessageHandler) {
 func handleListNode(msgHandler *messages.MessageHandler) {
 	fileMessage := messages.File{Action: os.Args[2]}
 	wrap := &messages.Wrapper{
-                Msg: &messages.Wrapper_File{File: &fileMessage},
-        }
-        msgHandler.Send(wrap)
+		Msg: &messages.Wrapper_File{File: &fileMessage},
+	}
+	msgHandler.Send(wrap)
 	wrapper, _ := msgHandler.Receive()
 	hosts := wrapper.GetHosts().GetHosts()
 	for i, host := range hosts {
@@ -207,35 +208,31 @@ func handleListNode(msgHandler *messages.MessageHandler) {
 
 func main() {
 	host := os.Args[1]
-        conn, err := net.Dial("tcp", host+":20100") 
-        if err != nil {
-                log.Fatalln(err.Error())
-                return
-        }
-        defer conn.Close()
+	conn, err := net.Dial("tcp", host+":20100")
+	if err != nil {
+		log.Fatalln(err.Error())
+		return
+	}
+	defer conn.Close()
 	msgHandler := messages.NewMessageHandler(conn)
 	fileMessage := messages.File{}
 	if os.Args[2] == "put" {
 		handlePutFile(msgHandler, fileMessage)
-		return
 	} else if os.Args[2] == "get" {
 		handleGetFile(msgHandler)
-		return
 	} else if os.Args[2] == "delete" {
 		handleDeleteFile(msgHandler)
-   		return
 	} else if os.Args[2] == "ls" {
 		handleListFile(msgHandler)
 	} else if os.Args[2] == "listnode" {
 		handleListNode(msgHandler)
 	} else {
 		log.Println("Invalid action: ", os.Args[2])
-		return
 	}
-	wrap := &messages.Wrapper{
-                Msg: &messages.Wrapper_File{File: &fileMessage},
-        } 
-        msgHandler.Send(wrap)
+	// wrap := &messages.Wrapper{
+	//             Msg: &messages.Wrapper_File{File: &fileMessage},
+	//     }
+	//     msgHandler.Send(wrap)
 	//handleController(msgHandler)
 
 }
