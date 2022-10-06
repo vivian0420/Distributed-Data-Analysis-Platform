@@ -80,6 +80,7 @@ func handlePutFile(msgHandler *messages.MessageHandler) {
 }
 
 var wg sync.WaitGroup
+var sem = make(chan int, 10)
 
 func handleGetFile(msgHandler *messages.MessageHandler) {
 	fileMessage := messages.File{Fullpath: os.Args[3], Action: os.Args[2]}
@@ -101,6 +102,7 @@ func handleGetFile(msgHandler *messages.MessageHandler) {
 	chunkSize := wrapper.GetFile().GetChunksize()
 	providedCheckSum := wrapper.GetFile().GetChecksum()
 	for i := 0; i < len(chunks); i++ {
+		sem <- 1
 		wg.Add(1)
 		go handleChunkDownload(chunks[i], chunkSize)
 	}
@@ -133,6 +135,7 @@ func handleChunkDownload(chunk *messages.Chunk, chunkSize uint64) {
 		if err == nil {
 			toConn = conn
 			defer conn.Close()
+			defer toConn.Close()
 			break
 		}
 		if i == len(chunk.Replicanodename)-1 && err != nil {
@@ -151,12 +154,14 @@ func handleChunkDownload(chunk *messages.Chunk, chunkSize uint64) {
 	content := wrapper.GetChunk().GetContent()
 	skip := int64(chunkSize * order)
 	file, err := os.OpenFile(os.Args[4], os.O_WRONLY, 0644)
+	defer file.Close()
 	if err != nil {
 		log.Fatal("OpenFile failed:", err)
 		return
 	}
 	file.Seek(skip, 0)
 	file.Write(content)
+	<-sem
 }
 
 func handleDeleteFile(msgHandler *messages.MessageHandler) {
@@ -234,10 +239,5 @@ func main() {
 	} else {
 		log.Println("Invalid action: ", os.Args[2])
 	}
-	// wrap := &messages.Wrapper{
-	//             Msg: &messages.Wrapper_File{File: &fileMessage},
-	//     }
-	//     msgHandler.Send(wrap)
-	//handleController(msgHandler)
-
+	
 }
