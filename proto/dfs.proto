@@ -24,20 +24,10 @@ message Chunk {
 }
 
 message Status {
-    string fullpath = 1;
-    bool success = 2;
-    uint64 order = 3;
-    string name = 4;
+    bool success = 1;
+    uint64 order = 2;
 }
 
-message Replica {
-    string fullpath = 1;
-    uint64 order = 2;
-    bytes checksum = 3;
-    uint64 size = 4;
-    bytes content = 5;
-    repeated string replicanodename = 6;
-}
 
 message Files {
     repeated File files = 1;
@@ -68,8 +58,7 @@ message Wrapper {
         Chunk chunk = 4;
         HeartBeat heartbeat = 5;
         Hosts hosts = 6;
-	Replica replica = 7;
-	Status status = 8;
+	Status status = 7;
     }
 }
 

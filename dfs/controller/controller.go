@@ -46,13 +46,9 @@ func handleClient(msgHandler *messages.MessageHandler) {
 			} else if action == "get" {
 				handleClientGet(msg, msgHandler)
 			} else if action == "delete" {
-				shouldReturn := handleClientDelete(msg, action, msgHandler)
-				if shouldReturn {
-					return
-				}
+				handleClientDelete(msg, action, msgHandler)
 			} else if action == "ls" {
 				handleClientLs(msg, msgHandler)
-
 			} else if action == "listnode" {
 				handleClientListnode(msgHandler)
 			}
@@ -118,7 +114,7 @@ func handleClientLs(msg *messages.Wrapper_File, msgHandler *messages.MessageHand
 	msgHandler.Send(wrap)
 }
 
-func handleClientDelete(msg *messages.Wrapper_File, action string, msgHandler *messages.MessageHandler) bool {
+func handleClientDelete(msg *messages.Wrapper_File, action string, msgHandler *messages.MessageHandler) {
 	in, err := ioutil.ReadFile(DFSController)
 	if err != nil {
 		log.Fatalln("Error reading file:", err)
@@ -127,7 +123,7 @@ func handleClientDelete(msg *messages.Wrapper_File, action string, msgHandler *m
 		log.Fatalln("Failed to parse Files:", err)
 	}
 	approved := false
-	var index int
+	toDelete := make(map[int]*messages.File, 0)
 	for i, f := range files.GetFiles() {
 		if f.GetFullpath() == msg.File.GetFullpath() || strings.HasPrefix(f.GetFullpath(), msg.File.GetFullpath()+"/") {
 			approved = true
@@ -135,7 +131,7 @@ func handleClientDelete(msg *messages.Wrapper_File, action string, msgHandler *m
 				conn, err := net.Dial("tcp", nodeName)
 				if err != nil {
 					log.Fatalln(err.Error())
-					return true
+					return
 				}
 				defer conn.Close()
 				storageNodeHandler := messages.NewMessageHandler(conn)
@@ -145,22 +141,25 @@ func handleClientDelete(msg *messages.Wrapper_File, action string, msgHandler *m
 				}
 				storageNodeHandler.Send(wrap)
 			}
-			index = i
-			break
+			toDelete[i] = f
 		}
 	}
-	files.Files = append(files.Files[:index], files.Files[index+1:]...)
-	out, _ := proto.Marshal(files)
+	afterDelete := &messages.Files{}
+	for i, f := range files.Files{
+		_, ok := toDelete[i]
+		if !ok {
+			afterDelete.Files = append(afterDelete.Files, f)
+		}
+	}
+	out, _ := proto.Marshal(afterDelete)
 	if err := ioutil.WriteFile(DFSController, out, 0644); err != nil {
 		log.Fatalln("Failed to write Files:", err)
 	}
-	log.Println("Approved: ", approved)
 	file := messages.File{Approved: approved}
 	wrap := &messages.Wrapper{
 		Msg: &messages.Wrapper_File{File: &file},
 	}
 	msgHandler.Send(wrap)
-	return false
 }
 
 func handleClientGet(msg *messages.Wrapper_File, msgHandler *messages.MessageHandler) {
@@ -296,3 +295,4 @@ func main() {
 	}
 
 }
+
