@@ -1,13 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/md5"
 	"dfs/messages"
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"net"
 	"os"
 	"strconv"
@@ -16,7 +16,72 @@ import (
 
 //wg sync.WaitGroup -----> https://stackoverflow.com/questions/18207772/how-to-wait-for-all-goroutines-to-finish-without-using-time-sleep
 
-func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string, intchunksize int) {
+func chopText(file *os.File, fullpath string, chunkSize int64) []*messages.Chunk {
+	file.Seek(0, 0)
+	var chunks []*messages.Chunk
+	reader := bufio.NewReader(file)
+	var buffer bytes.Buffer
+	start := int64(0)
+
+	for {
+		bytesread, err := reader.ReadBytes('\n')
+		buffer.Write(bytesread)
+		if len(buffer.Bytes()) >= int(chunkSize) || err == io.EOF {
+			chunkcontent := make([]byte, len(buffer.Bytes()))
+			copy(chunkcontent, buffer.Bytes())
+			checksum := md5.Sum(chunkcontent)
+			chunk := messages.Chunk{
+				Fullpath: fullpath,
+				Checksum: checksum[:],
+				Start:    start,
+				Size:     uint64(len(chunkcontent)),
+				Action:   "put",
+			}
+
+			start += int64(len(chunkcontent))
+			chunks = append(chunks, &chunk)
+			buffer.Reset()
+		}
+		if err != nil {
+			if err != io.EOF {
+				fmt.Println(err)
+				panic(err)
+			}
+			break
+		}
+	}
+	return chunks
+}
+
+func chopBinary(file *os.File, fullpath string, chunkSize int64) []*messages.Chunk {
+	file.Seek(0, 0)
+	var chunks []*messages.Chunk
+	start := int64(0)
+	for {
+		chunkcontent := make([]byte, chunkSize)
+		bytesread, err := file.Read(chunkcontent)
+		if err != nil {
+			if err != io.EOF {
+				log.Println(err)
+			}
+			break
+		}
+		checksum := md5.Sum(chunkcontent[:bytesread])
+
+		chunk := messages.Chunk{
+			Fullpath: fullpath,
+			Checksum: checksum[:],
+			Size:     uint64(bytesread),
+			Action:   "put",
+			Start:    start,
+		}
+		start += chunkSize
+		chunks = append(chunks, &chunk)
+	}
+	return chunks
+}
+
+func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string, chunkSize int, contentType string, chunks []*messages.Chunk) {
 	defer msgHandler.Close()
 	order := uint64(0)
 	wrapper, _ := msgHandler.Receive()
@@ -24,33 +89,31 @@ func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string, 
 		log.Println("File existed!!!!")
 		return
 	}
-	chunk := make([]byte, intchunksize)
 	file.Seek(0, 0)
-	for {
-		bytesread, err := file.Read(chunk)
+	for _, c := range chunks {
+		file.Seek(c.Start, 0)
+		content := make([]byte, c.Size)
+		bytesread, err := file.Read(content)
 		if err != nil {
-			if err != io.EOF {
-				log.Println(err)
-			}
-			break
+			log.Fatal("Cannot read content for upload: ", err)
+			return
 		}
-		checksum := md5.Sum(chunk[:bytesread])
-		thisChunk := wrapper.GetFile().GetChunks()[order]
-		toConnect := thisChunk.GetReplicanodename()[0]
+		c.Content = content[:bytesread]
+		toConnect := wrapper.GetFile().GetChunks()[order].GetReplicanodename()[0]
 		conn, err := net.Dial("tcp", toConnect)
 		if err != nil {
 			log.Fatalln("fail to connect to storage node: "+toConnect, err.Error())
 			return
 		}
 		msgHandler = messages.NewMessageHandler(conn)
-		chunk := messages.Chunk{Fullpath: path, Order: order, Checksum: checksum[:], Size: uint64(bytesread), Action: "put", Content: chunk[:bytesread], Replicanodename: wrapper.GetFile().GetChunks()[order].GetReplicanodename()}
+		c.Replicanodename = wrapper.GetFile().GetChunks()[order].GetReplicanodename()
+		c.Order = order
 		wrap := &messages.Wrapper{
-			Msg: &messages.Wrapper_Chunk{Chunk: &chunk},
+			Msg: &messages.Wrapper_Chunk{Chunk: c},
 		}
 		msgHandler.Send(wrap)
 		order++
 	}
-
 }
 
 func handlePutFile(msgHandler *messages.MessageHandler) {
@@ -69,14 +132,23 @@ func handlePutFile(msgHandler *messages.MessageHandler) {
 		log.Fatal(err)
 	}
 	checksum := h.Sum(nil)
-	intchunksize, _ := strconv.Atoi(os.Args[5])
-	chunkAmount := math.Ceil(float64(size) / float64(intchunksize))
-	fileMessage := messages.File{Fullpath: os.Args[4], Checksum: checksum, Size: size, Chunksize: uint64(intchunksize), Chunkamount: uint64(chunkAmount), Action: os.Args[2]}
+	chunkSize, err := strconv.Atoi(os.Args[6])
+	if err != nil {
+		log.Fatal("os.Args[6] cannot be convert into int")
+	}
+	var chunks []*messages.Chunk
+	contentType := os.Args[5]
+	if contentType == "-text" {
+		chunks = chopText(file, os.Args[4], int64(chunkSize))
+	} else {
+		chunks = chopBinary(file, os.Args[4], int64(chunkSize))
+	}
+	fileMessage := messages.File{Fullpath: os.Args[4], Checksum: checksum, Size: size, Action: os.Args[2], Chunks: chunks}
 	wrap := &messages.Wrapper{
 		Msg: &messages.Wrapper_File{File: &fileMessage},
 	}
 	msgHandler.Send(wrap)
-	handlePut(msgHandler, file, os.Args[4], intchunksize)
+	handlePut(msgHandler, file, os.Args[4], chunkSize, contentType, chunks)
 }
 
 var wg sync.WaitGroup
@@ -101,9 +173,11 @@ func handleGetFile(msgHandler *messages.MessageHandler) {
 	chunks := wrapper.GetFile().GetChunks()
 	chunkSize := wrapper.GetFile().GetChunksize()
 	providedCheckSum := wrapper.GetFile().GetChecksum()
+
 	for i := 0; i < len(chunks); i++ {
 		sem <- 1
 		wg.Add(1)
+		chunks[i].Order = uint64(i)
 		go handleChunkDownload(chunks[i], chunkSize)
 	}
 	wg.Wait()
@@ -150,15 +224,14 @@ func handleChunkDownload(chunk *messages.Chunk, chunkSize uint64) {
 	}
 	downloadHandler.Send(wrap)
 	wrapper, _ := downloadHandler.Receive()
-	order := wrapper.GetChunk().GetOrder()
 	content := wrapper.GetChunk().GetContent()
-	skip := int64(chunkSize * order)
+	skip := chunk.GetStart()
 	file, err := os.OpenFile(os.Args[4], os.O_WRONLY, 0644)
-	defer file.Close()
 	if err != nil {
 		log.Fatal("OpenFile failed:", err)
 		return
 	}
+	defer file.Close()
 	file.Seek(skip, 0)
 	file.Write(content)
 	<-sem
@@ -239,5 +312,5 @@ func main() {
 	} else {
 		log.Println("Invalid action: ", os.Args[2])
 	}
-	
+
 }

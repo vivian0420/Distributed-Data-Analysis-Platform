@@ -21,6 +21,7 @@ message Chunk {
     bytes content = 5;
     repeated string replicanodename = 6;
     string action = 7;
+    int64 start = 8;
 }
 
 message Status {
@@ -50,6 +51,14 @@ message HeartBeat {
     uint64 free_space = 3;
 }
 
+message Job {
+    bytes plugin = 1;
+    string input = 2;
+    string output = 3;
+    string action = 4;
+    uint64 chunk_num = 5;
+}
+
 message Wrapper {
     oneof msg {
         File file = 1;
@@ -58,7 +67,8 @@ message Wrapper {
         Chunk chunk = 4;
         HeartBeat heartbeat = 5;
         Hosts hosts = 6;
-	Status status = 7;
+	    Status status = 7;
+        Job job = 8;
     }
 }
 

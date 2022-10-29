@@ -2,3 +2,5 @@
 .DS_Store
 *.bin
 dfs/logs
+.vscode/
+**/__debug_bin

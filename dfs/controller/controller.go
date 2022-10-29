@@ -145,7 +145,7 @@ func handleClientDelete(msg *messages.Wrapper_File, action string, msgHandler *m
 		}
 	}
 	afterDelete := &messages.Files{}
-	for i, f := range files.Files{
+	for i, f := range files.Files {
 		_, ok := toDelete[i]
 		if !ok {
 			afterDelete.Files = append(afterDelete.Files, f)
@@ -248,14 +248,21 @@ func handleClientPut(msgHandler *messages.MessageHandler, msg *messages.Wrapper_
 		}
 	}
 	log.Println("approved: ", approved)
-	chunkAmount := int(msg.File.GetChunkamount())
-	file := messages.File{Fullpath: msg.File.GetFullpath(), Approved: true, Size: msg.File.GetSize(), Chunksize: msg.File.GetChunksize(), Chunkamount: msg.File.GetChunkamount(), Checksum: msg.File.GetChecksum()}
-	for i := 0; i < chunkAmount; i++ {
-		chunk := messages.Chunk{Fullpath: file.GetFullpath(), Order: uint64(i)}
+	for i, chunk := range msg.File.Chunks {
+		chunk.Order = uint64(i)
+		chunk.Fullpath = msg.File.GetFullpath()
 		for node := range getRandomNodes() {
 			chunk.Replicanodename = append(chunk.Replicanodename, node)
 		}
-		file.Chunks = append(file.Chunks, &chunk)
+	}
+	file := messages.File{
+		Fullpath:    msg.File.GetFullpath(),
+		Approved:    true,
+		Size:        msg.File.GetSize(),
+		Chunksize:   msg.File.GetChunksize(),
+		Chunkamount: msg.File.GetChunkamount(),
+		Checksum:    msg.File.GetChecksum(),
+		Chunks:      msg.File.Chunks,
 	}
 	files.Files = append(files.Files, &file)
 	out, _ := proto.Marshal(files)
@@ -295,4 +302,3 @@ func main() {
 	}
 
 }
-
