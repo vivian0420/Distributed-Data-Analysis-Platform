@@ -1,28 +1,58 @@
 package main
 
 import (
-	"fmt"
+	"hash/fnv"
+	"strings"
 )
 
-var V int
-
-func F() { fmt.Printf("Hello, number %d\n", V) }
-
-func Map(line_number int, line_text string) []*map[string]int {
-	return nil
+func Map(line_number int, line_text string) []*map[string]uint32 {
+	var mapped []*map[string]uint32
+	words := strings.Fields(line_text)
+	for _, word := range words {
+		singleMap := make(map[string]uint32)
+		singleMap[word] = 1
+		mapped = append(mapped, &singleMap)
+	}
+	return mapped
 }
 
-func Shuffle(m map[string]int) map[int](map[string]int) {
-	shuffled := make(map[int](map[string]int))
+func Shuffle(mappedList []*map[string]uint32, reducernum uint32) map[int]([]*map[string]uint32) {
+	shuffled := make(map[int]([]*map[string]uint32))
+	for i := 0; i < int(reducernum); i++ {
+		emptyList := []*map[string]uint32{}
+		shuffled[i] = emptyList
+	}
+	for _, mapped := range mappedList {
+		for k := range *mapped {
+			h := fnv.New32a()
+			h.Write([]byte(k))
+			hashNum := h.Sum32()
+			reducer := hashNum % reducernum
+			shuffled[int(reducer)] = append(shuffled[int(reducer)], mapped)
+		}
+	}
 	return shuffled
 }
 
-func Sort(m map[string]int) map[string][]int {
-	sorted := make(map[string][]int)
+func Sort(shuffledList []*map[string]uint32) map[string][]uint32 {
+	sorted := make(map[string][]uint32)
+	for _, shuffled := range shuffledList {
+		for k := range *shuffled {
+			if _, ok := sorted[k]; ok {
+				sorted[k] = append(sorted[k], 1)
+			} else {
+				listOfValue := []uint32{1}
+				sorted[k] = listOfValue
+			}
+		}
+	}
 	return sorted
 }
 
-func Reduce(m map[string][]string) map[string]int {
-	reduced := make(map[string]int)
+func Reduce(sorted map[string][]uint32) map[string]uint32 {
+	reduced := make(map[string]uint32)
+	for key, value := range sorted {
+		reduced[key] = uint32(len(value))
+	}
 	return reduced
 }

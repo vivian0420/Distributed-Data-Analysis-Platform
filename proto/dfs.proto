@@ -51,12 +51,36 @@ message HeartBeat {
     uint64 free_space = 3;
 }
 
+message MapPair {
+    string key = 1;
+    uint32 value = 2;
+}
+
+message MapPairs {
+    repeated MapPair reducejob = 1;
+}
+
 message Job {
     bytes plugin = 1;
-    string input = 2;
-    string output = 3;
-    string action = 4;
-    uint64 chunk_num = 5;
+    string plugin_name = 2;
+    string input = 3;
+    string output = 4;
+    string action = 5;
+    uint64 chunk_num = 6;
+    uint32 reducer_num = 7;
+    uint32 reducer_index = 8;
+    repeated string reducername = 9;
+    MapPairs mapPairs = 10;
+    uint64 totalChunk = 11;
+    string jobId = 12;
+}
+
+message Feedback {
+    uint64 total_map = 1;
+    uint64 completed_map = 2;
+    uint64 total_reduce = 3;
+    uint64 completed_reduce = 4;
+    string type = 5;
 }
 
 message Wrapper {
@@ -68,7 +92,10 @@ message Wrapper {
         HeartBeat heartbeat = 5;
         Hosts hosts = 6;
 	    Status status = 7;
-        Job job = 8;
+        MapPair mappair = 8;
+        Job job = 9;
+        Feedback feedback = 10;
+        MapPairs mappairs = 11;
     }
 }
 

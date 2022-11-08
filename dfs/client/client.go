@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/md5"
 	"dfs/messages"
@@ -10,147 +9,12 @@ import (
 	"log"
 	"net"
 	"os"
-	"strconv"
 	"sync"
+
+	"dfs/clientlib"
 )
 
 //wg sync.WaitGroup -----> https://stackoverflow.com/questions/18207772/how-to-wait-for-all-goroutines-to-finish-without-using-time-sleep
-
-func chopText(file *os.File, fullpath string, chunkSize int64) []*messages.Chunk {
-	file.Seek(0, 0)
-	var chunks []*messages.Chunk
-	reader := bufio.NewReader(file)
-	var buffer bytes.Buffer
-	start := int64(0)
-
-	for {
-		bytesread, err := reader.ReadBytes('\n')
-		buffer.Write(bytesread)
-		if len(buffer.Bytes()) >= int(chunkSize) || err == io.EOF {
-			chunkcontent := make([]byte, len(buffer.Bytes()))
-			copy(chunkcontent, buffer.Bytes())
-			checksum := md5.Sum(chunkcontent)
-			chunk := messages.Chunk{
-				Fullpath: fullpath,
-				Checksum: checksum[:],
-				Start:    start,
-				Size:     uint64(len(chunkcontent)),
-				Action:   "put",
-			}
-
-			start += int64(len(chunkcontent))
-			chunks = append(chunks, &chunk)
-			buffer.Reset()
-		}
-		if err != nil {
-			if err != io.EOF {
-				fmt.Println(err)
-				panic(err)
-			}
-			break
-		}
-	}
-	return chunks
-}
-
-func chopBinary(file *os.File, fullpath string, chunkSize int64) []*messages.Chunk {
-	file.Seek(0, 0)
-	var chunks []*messages.Chunk
-	start := int64(0)
-	for {
-		chunkcontent := make([]byte, chunkSize)
-		bytesread, err := file.Read(chunkcontent)
-		if err != nil {
-			if err != io.EOF {
-				log.Println(err)
-			}
-			break
-		}
-		checksum := md5.Sum(chunkcontent[:bytesread])
-
-		chunk := messages.Chunk{
-			Fullpath: fullpath,
-			Checksum: checksum[:],
-			Size:     uint64(bytesread),
-			Action:   "put",
-			Start:    start,
-		}
-		start += chunkSize
-		chunks = append(chunks, &chunk)
-	}
-	return chunks
-}
-
-func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string, chunkSize int, contentType string, chunks []*messages.Chunk) {
-	defer msgHandler.Close()
-	order := uint64(0)
-	wrapper, _ := msgHandler.Receive()
-	if !wrapper.GetFile().GetApproved() {
-		log.Println("File existed!!!!")
-		return
-	}
-	file.Seek(0, 0)
-	for _, c := range chunks {
-		file.Seek(c.Start, 0)
-		content := make([]byte, c.Size)
-		bytesread, err := file.Read(content)
-		if err != nil {
-			log.Fatal("Cannot read content for upload: ", err)
-			return
-		}
-		c.Content = content[:bytesread]
-		toConnect := wrapper.GetFile().GetChunks()[order].GetReplicanodename()[0]
-		conn, err := net.Dial("tcp", toConnect)
-		if err != nil {
-			log.Fatalln("fail to connect to storage node: "+toConnect, err.Error())
-			return
-		}
-		msgHandler = messages.NewMessageHandler(conn)
-		c.Replicanodename = wrapper.GetFile().GetChunks()[order].GetReplicanodename()
-		c.Order = order
-		wrap := &messages.Wrapper{
-			Msg: &messages.Wrapper_Chunk{Chunk: c},
-		}
-		msgHandler.Send(wrap)
-		order++
-	}
-}
-
-func handlePutFile(msgHandler *messages.MessageHandler) {
-	file, err := os.Open(os.Args[3])
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-	fi, err := file.Stat()
-	if err != nil {
-		log.Fatal(err)
-	}
-	size := uint64(fi.Size())
-	h := md5.New()
-	if _, err := io.Copy(h, file); err != nil {
-		log.Fatal(err)
-	}
-	checksum := h.Sum(nil)
-	chunkSize, err := strconv.Atoi(os.Args[6])
-	if err != nil {
-		log.Fatal("os.Args[6] cannot be convert into int")
-	}
-	var chunks []*messages.Chunk
-	contentType := os.Args[5]
-	if contentType == "-text" {
-		chunks = chopText(file, os.Args[4], int64(chunkSize))
-	} else {
-		chunks = chopBinary(file, os.Args[4], int64(chunkSize))
-	}
-	fileMessage := messages.File{Fullpath: os.Args[4], Checksum: checksum, Size: size, Action: os.Args[2], Chunks: chunks}
-	wrap := &messages.Wrapper{
-		Msg: &messages.Wrapper_File{File: &fileMessage},
-	}
-	msgHandler.Send(wrap)
-	handlePut(msgHandler, file, os.Args[4], chunkSize, contentType, chunks)
-}
-
 var wg sync.WaitGroup
 var sem = make(chan int, 10)
 
@@ -300,7 +164,7 @@ func main() {
 	defer conn.Close()
 	msgHandler := messages.NewMessageHandler(conn)
 	if os.Args[2] == "put" {
-		handlePutFile(msgHandler)
+		clientlib.HandlePutFile(msgHandler, os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6])
 	} else if os.Args[2] == "get" {
 		handleGetFile(msgHandler)
 	} else if os.Args[2] == "delete" {

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/md5"
+	"dfs/clientlib"
 	"dfs/messages"
 	"fmt"
 	"io"
@@ -11,9 +13,11 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"plugin"
 	"time"
 
 	"golang.org/x/sys/unix"
+	"google.golang.org/protobuf/proto"
 )
 
 var numOfRequests uint64 = 0
@@ -95,11 +99,198 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 					log.Fatal(e)
 				}
 			}
+		case *messages.Wrapper_Job:
+			if msg.Job.GetAction() == "map" {
+				chunkNum := wrapper.GetJob().GetChunkNum()
+				//totalChunks := wrapper.GetJob().GetTotalChunk()
+				chunkPath := filepath.Join(os.Args[1], wrapper.GetJob().GetInput(), fmt.Sprintf("chunk-%d", chunkNum))
+				plu := wrapper.GetJob().GetPlugin()
+				outputFilePath := wrapper.GetJob().GetOutput()
+				reducers := wrapper.GetJob().GetReducername()
+				pluginName := wrapper.GetJob().GetPluginName()
+				id := wrapper.GetJob().GetJobId()
+				pluginPath := os.Args[1] + "/" + pluginName
+				chunk, err := os.Open(chunkPath)
+				if err != nil {
+					panic(err)
+				}
+				defer chunk.Close()
+				if _, err := os.Stat(pluginPath); os.IsNotExist(err) {
+					f, err := os.Create(pluginPath)
+					if err != nil {
+						panic(err)
+					}
+					defer f.Close()
+					_, err1 := f.Write(plu)
+					if err1 != nil {
+						panic(err1)
+					}
+				}
+				p, err := plugin.Open(pluginPath)
+				if err != nil {
+					panic(err)
+				}
+				lineNum := 0
+				var mapResult []*map[string]uint32
+				scanner := bufio.NewScanner(chunk)
+				//map
+				m, err := p.Lookup("Map")
+				if err != nil {
+					panic(err)
+				}
+				for scanner.Scan() {
+					mapResult = append(mapResult, (m.(func(int, string) []*map[string]uint32)(lineNum, scanner.Text()))...)
+					lineNum += 1
+				}
+				if err := scanner.Err(); err != nil {
+					log.Fatal(err)
+				}
+				//shuffle
+				s, err := p.Lookup("Shuffle")
+				if err != nil {
+					panic(err)
+				}
+				shuffleResult := s.(func([]*map[string]uint32, uint32) map[int]([]*map[string]uint32))(mapResult, uint32(len(reducers)))
+
+				// send reduce job to reducers
+				for i, reducer := range reducers {
+					conn, err := net.Dial("tcp", reducer)
+					if err != nil {
+						log.Fatalln(err)
+						return
+					}
+					var reducejob []*messages.MapPair
+					for _, eachMap := range shuffleResult[i] {
+						for k, v := range *eachMap {
+							mapPair := messages.MapPair{
+								Key:   k,
+								Value: v,
+							}
+							reducejob = append(reducejob, &mapPair)
+						}
+					}
+					jobHandler := messages.NewMessageHandler(conn)
+					mappairs := messages.MapPairs{Reducejob: reducejob}
+					jobMessage := messages.Job{MapPairs: &mappairs, ReducerIndex: uint32(i), Action: "mapdone", Output: outputFilePath, ChunkNum: chunkNum, JobId: id}
+					wrap := &messages.Wrapper{
+						Msg: &messages.Wrapper_Job{Job: &jobMessage},
+					}
+					jobHandler.Send(wrap)
+				}
+				// send completing map job message to computation manager:
+				mapCompleteMessage := messages.Job{Action: "map Completed"}
+				mapCompleteWrap := &messages.Wrapper{
+					Msg: &messages.Wrapper_Job{Job: &mapCompleteMessage},
+				}
+				clientHandler.Send(mapCompleteWrap)
+
+			} else if msg.Job.GetAction() == "mapdone" {
+				id := wrapper.GetJob().GetJobId()
+				mapPairs := wrapper.GetJob().GetMapPairs()
+				chunkNum := wrapper.GetJob().GetChunkNum()
+				jobDirPath := filepath.Join(os.Args[1], id)
+				jobPath := filepath.Join(jobDirPath, fmt.Sprint(chunkNum))
+				os.MkdirAll(jobDirPath, os.ModePerm)
+				f, err := os.Create(jobPath)
+				if err != nil {
+					panic(err)
+				}
+				defer f.Close()
+				out, _ := proto.Marshal(mapPairs)
+				_, err1 := f.Write(out)
+				if err1 != nil {
+					panic(err1)
+				}
+
+			} else if msg.Job.GetAction() == "reduce" {
+				outputFilePath := wrapper.GetJob().GetOutput()
+				reducerIndex := wrapper.GetJob().GetReducerIndex()
+				id := wrapper.GetJob().GetJobId()
+				jobDirPath := filepath.Join(os.Args[1], id)
+				totalChunks := wrapper.GetJob().GetTotalChunk()
+				mapResult := messages.MapPairs{}
+				for i := 0; i < int(totalChunks); i++ {
+					jobPath := filepath.Join(jobDirPath, fmt.Sprint(i))
+					in, err := ioutil.ReadFile(jobPath)
+					if err != nil {
+						log.Fatalln("Error reading map pair file:", err)
+					}
+					mappairs := &messages.MapPairs{}
+					if err := proto.Unmarshal(in, mappairs); err != nil {
+						log.Fatalln("Failed to parse Files:", err)
+					}
+					mapResult.Reducejob = append(mapResult.Reducejob, mappairs.Reducejob...)
+				}
+				listOfMap := []*map[string]uint32{}
+				for _, mappair := range mapResult.Reducejob {
+					eachMap := make(map[string]uint32)
+					eachMap[mappair.Key] = mappair.Value
+					listOfMap = append(listOfMap, &eachMap)
+				}
+				pluginName := wrapper.GetJob().GetPluginName()
+				pluginPath := os.Args[1] + "/" + pluginName
+				plu := wrapper.GetJob().GetPlugin()
+				if _, err := os.Stat(pluginPath); os.IsNotExist(err) {
+					f, err := os.Create(pluginPath)
+					if err != nil {
+						panic(err)
+					}
+					defer f.Close()
+					_, err1 := f.Write(plu)
+					if err1 != nil {
+						panic(err1)
+					}
+				}
+				p, err := plugin.Open(pluginPath)
+				if err != nil {
+					panic(err)
+				}
+				//sort
+				s, err := p.Lookup("Sort")
+				if err != nil {
+					panic(err)
+				}
+				sortResult := s.(func([]*map[string]uint32) map[string][]uint32)(listOfMap)
+				r, err := p.Lookup("Reduce")
+				if err != nil {
+					panic(err)
+				}
+				//Reduce
+				reduceResult := r.(func(map[string][]uint32) map[string]uint32)(sortResult)
+				// write "reduceResult" to txt file
+				f, err := os.Create(os.Args[1] + "/reduceResult.txt")
+				if err != nil {
+					log.Fatal(err)
+				}
+				defer f.Close()
+				for k, v := range reduceResult {
+					_, err := f.WriteString(k + ": " + fmt.Sprint(v) + "\n")
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+				//send completing reduce job message to computation manager:
+				reduceCompleteMessage := messages.Job{Action: "reduce Completed"}
+				reduceCompleteWrap := &messages.Wrapper{
+					Msg: &messages.Wrapper_Job{Job: &reduceCompleteMessage},
+				}
+				clientHandler.Send(reduceCompleteWrap)
+				//upload reduce result file dfs
+				conToController, err := net.Dial("tcp", os.Args[2]+":20100")
+				if err != nil {
+					log.Fatalln(err.Error())
+					return
+				}
+				defer conToController.Close()
+				putMsgHandler := messages.NewMessageHandler(conToController)
+				outputPath := filepath.Join(outputFilePath, fmt.Sprintf("result-%d", reducerIndex))
+				clientlib.HandlePutFile(putMsgHandler, "put", os.Args[1]+"/reduceResult.txt", outputPath, "-text", "256")
+			}
+
 		case nil:
 			return
 		default:
 			log.Printf("Unexpected message type: %T", msg)
-
 		}
 	}
 }
@@ -153,7 +344,7 @@ func handleActionPut(msg *messages.Wrapper_Chunk, clientHandler *messages.Messag
 	if res != 0 {
 		success = false
 	}
-	if success == false {
+	if !success {
 		e := os.Remove(chunkPath)
 		if e != nil {
 			log.Fatal(e)
