@@ -22,7 +22,6 @@ func main() {
 		panic(err)
 	}
 	msgHandler := messages.NewMessageHandler(conn)
-	//reducerNum, err := strconv.Atoi(os.Args[5])
 	if err != nil {
 		log.Fatal("os.Args[5] cannot be convert into int")
 	}

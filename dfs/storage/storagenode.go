@@ -250,23 +250,25 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 				if err != nil {
 					panic(err)
 				}
-				sortResult := s.(func([]*map[string]uint32) map[string][]uint32)(listOfMap)
+				sortResult := s.(func([]*map[string]uint32) []*map[string][]uint32)(listOfMap)
 				r, err := p.Lookup("Reduce")
 				if err != nil {
 					panic(err)
 				}
 				//Reduce
-				reduceResult := r.(func(map[string][]uint32) map[string]uint32)(sortResult)
+				reduceResult := r.(func([]*map[string][]uint32) []*map[string]uint32)(sortResult)
 				// write "reduceResult" to txt file
 				f, err := os.Create(os.Args[1] + "/reduceResult.txt")
 				if err != nil {
 					log.Fatal(err)
 				}
 				defer f.Close()
-				for k, v := range reduceResult {
-					_, err := f.WriteString(k + ": " + fmt.Sprint(v) + "\n")
-					if err != nil {
-						log.Fatal(err)
+				for _, m := range reduceResult {
+					for k, v := range *m {
+						_, err := f.WriteString(k + ": " + fmt.Sprint(v) + "\n")
+						if err != nil {
+							log.Fatal(err)
+						}
 					}
 				}
 				//send completing reduce job message to computation manager:

@@ -3,16 +3,21 @@ package main
 import (
 	"hash/fnv"
 	"sort"
+	"strconv"
 	"strings"
 )
 
-//go build -buildmode=plugin -gcflags="all=-N -l" -o ./pluginrun/plugin.so ./plugin/plugin.go
+// go build -buildmode=plugin -gcflags="all=-N -l" -o ./playerPluginrun/playerPlugin.so ./playerPlugin/playerPlugin.go
 func Map(line_number int, line_text string) []*map[string]uint32 {
 	var mapped []*map[string]uint32
-	words := strings.Fields(line_text)
-	for _, word := range words {
+	words := strings.Split(line_text, ",")
+	if len(words) == 2 {
 		singleMap := make(map[string]uint32)
-		singleMap[word] = 1
+		score, err := strconv.ParseFloat(words[1], 32)
+		if err != nil {
+			return mapped
+		}
+		singleMap[words[0]] = uint32(score)
 		mapped = append(mapped, &singleMap)
 	}
 	return mapped
@@ -53,7 +58,7 @@ func Sort(shuffledList []*map[string]uint32) []*map[string][]uint32 {
 	for key := range grouped {
 		sortedKeys = append(sortedKeys, key)
 	}
-    sort.Strings(sortedKeys)
+	sort.Strings(sortedKeys)
 	for _, key := range sortedKeys {
 		temp := make(map[string][]uint32)
 		temp[key] = grouped[key]
@@ -66,8 +71,12 @@ func Reduce(sorted []*map[string][]uint32) []*map[string]uint32 {
 	reduced := []*map[string]uint32{}
 	for _, m := range sorted {
 		for key, value := range *m {
-            temp := make(map[string]uint32)
-			temp[key] = uint32(len(value))
+			totalscore := uint32(0)
+			for _, score := range value {
+				totalscore += score
+			}
+			temp := make(map[string]uint32)
+			temp[key] = totalscore
 			reduced = append(reduced, &temp)
 		}
 	}
