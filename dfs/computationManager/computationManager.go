@@ -4,10 +4,8 @@ import (
 	"dfs/messages"
 	"fmt"
 	"log"
-	"math"
 	"net"
 	"os"
-	"strconv"
 	"sync"
 	"sort"
 
@@ -19,6 +17,7 @@ var wg sync.WaitGroup
 var sem = make(chan int, 10)
 
 func handleJobs(msgHandler *messages.MessageHandler) {
+	log.Println("received job!!!!")
 	defer msgHandler.Close()
 	for {
 		wrapper, _ := msgHandler.Receive()
@@ -31,7 +30,7 @@ func handleJobs(msgHandler *messages.MessageHandler) {
 				id := uuid.New()
 				plugin := wrapper.GetJob().GetPlugin()
 				inputFile := wrapper.GetJob().GetInput()
-				//reducernum = wrapper.GetJob().GetReducerNum()
+				reducernum = wrapper.GetJob().GetReducerNum()
 				outputFile := wrapper.GetJob().GetOutput()
 				name := wrapper.GetJob().GetPluginName()
 				conn, err := net.Dial("tcp", os.Args[1]+":20100")
@@ -67,13 +66,6 @@ func handleJobs(msgHandler *messages.MessageHandler) {
 					return mapperSort[mapperList[i]] < mapperSort[mapperList[j]]
 				})
 
-				fileSize := controllerWrapper.GetFile().GetSize()
-				unitSize, err := strconv.Atoi(os.Args[2])
-				if err != nil {
-					log.Fatal("os.Args[2] cannot be convert into int")
-				}
-				reducernum = uint32(math.Ceil(float64(fileSize) / float64(unitSize)))
-				log.Println("reducer number: ", reducernum)
 				//send request to controller to ask activenodes' list
 				fileMessageList := messages.File{Action: "listnode"}
 				listwrap := &messages.Wrapper{
@@ -156,6 +148,7 @@ func sendPlugin(chunk *messages.Chunk, plugin []byte, inputFile string, outputFi
 	}
 	sendPluginHandler.Send(wrap)
 	sendPluginHandler.Receive()
+	log.Println("Received map completed message from storage node. Chunk: ", chunk_num)
 	<-sem
 }
 

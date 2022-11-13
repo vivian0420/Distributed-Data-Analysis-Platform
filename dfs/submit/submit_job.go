@@ -6,7 +6,7 @@ import (
 	"net"
 	"os"
 	"path"
-	
+	"strconv"
 )
 
 func main() {
@@ -25,7 +25,11 @@ func main() {
 	if err != nil {
 		log.Fatal("os.Args[5] cannot be convert into int")
 	}
-	jobMessage := messages.Job{Plugin: bytes, PluginName: path.Base(os.Args[1]), Input: os.Args[2], Output: os.Args[3], Action: "submit job"}
+	reducerNum, err := strconv.Atoi(os.Args[5])
+	if err != nil {
+		panic(err)
+	}
+	jobMessage := messages.Job{Plugin: bytes, PluginName: path.Base(os.Args[1]), Input: os.Args[2], Output: os.Args[3], Action: "submit job", ReducerNum: uint32(reducerNum)}
 	wrap := &messages.Wrapper{
 		Msg: &messages.Wrapper_Job{Job: &jobMessage},
 	}

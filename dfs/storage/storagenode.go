@@ -8,12 +8,12 @@ import (
 	"dfs/messages"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
 	"plugin"
+	"sync"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -21,6 +21,8 @@ import (
 )
 
 var numOfRequests uint64 = 0
+var pluginMap = make(map[string]*plugin.Plugin)
+var l sync.Mutex
 
 func main() {
 	host := os.Args[2] //controller hostname
@@ -102,19 +104,19 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 		case *messages.Wrapper_Job:
 			if msg.Job.GetAction() == "map" {
 				chunkNum := wrapper.GetJob().GetChunkNum()
-				//totalChunks := wrapper.GetJob().GetTotalChunk()
 				chunkPath := filepath.Join(os.Args[1], wrapper.GetJob().GetInput(), fmt.Sprintf("chunk-%d", chunkNum))
 				plu := wrapper.GetJob().GetPlugin()
 				outputFilePath := wrapper.GetJob().GetOutput()
 				reducers := wrapper.GetJob().GetReducername()
 				pluginName := wrapper.GetJob().GetPluginName()
 				id := wrapper.GetJob().GetJobId()
-				pluginPath := os.Args[1] + "/" + pluginName
+				pluginPath := filepath.Join(os.Args[1], pluginName)
 				chunk, err := os.Open(chunkPath)
 				if err != nil {
 					panic(err)
 				}
 				defer chunk.Close()
+				l.Lock()
 				if _, err := os.Stat(pluginPath); os.IsNotExist(err) {
 					f, err := os.Create(pluginPath)
 					if err != nil {
@@ -126,16 +128,22 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 						panic(err1)
 					}
 				}
-				p, err := plugin.Open(pluginPath)
-				if err != nil {
-					panic(err)
+				if _, ok := pluginMap[pluginPath]; !ok {
+					p, err := plugin.Open(pluginPath)
+					if err != nil {
+						log.Println("Panic happend on chunk: ", chunkNum)
+						panic(err)
+					}
+					pluginMap[pluginPath] = p
 				}
+				l.Unlock()
 				lineNum := 0
 				var mapResult []*map[string]uint32
 				scanner := bufio.NewScanner(chunk)
 				//map
-				m, err := p.Lookup("Map")
+				m, err := pluginMap[pluginPath].Lookup("Map")
 				if err != nil {
+
 					panic(err)
 				}
 				for scanner.Scan() {
@@ -146,7 +154,7 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 					log.Fatal(err)
 				}
 				//shuffle
-				s, err := p.Lookup("Shuffle")
+				s, err := pluginMap[pluginPath].Lookup("Shuffle")
 				if err != nil {
 					panic(err)
 				}
@@ -175,7 +183,9 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 					wrap := &messages.Wrapper{
 						Msg: &messages.Wrapper_Job{Job: &jobMessage},
 					}
+					log.Println("Send mapdone message to reducer: ", chunkNum)
 					jobHandler.Send(wrap)
+					jobHandler.Receive()
 				}
 				// send completing map job message to computation manager:
 				mapCompleteMessage := messages.Job{Action: "map Completed"}
@@ -183,11 +193,13 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 					Msg: &messages.Wrapper_Job{Job: &mapCompleteMessage},
 				}
 				clientHandler.Send(mapCompleteWrap)
+				log.Println("Send map Completed message to computation manager: ", chunkNum)
 
 			} else if msg.Job.GetAction() == "mapdone" {
 				id := wrapper.GetJob().GetJobId()
 				mapPairs := wrapper.GetJob().GetMapPairs()
 				chunkNum := wrapper.GetJob().GetChunkNum()
+				log.Println("Received mapdone data from chun: ", chunkNum)
 				jobDirPath := filepath.Join(os.Args[1], id)
 				jobPath := filepath.Join(jobDirPath, fmt.Sprint(chunkNum))
 				os.MkdirAll(jobDirPath, os.ModePerm)
@@ -201,6 +213,11 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 				if err1 != nil {
 					panic(err1)
 				}
+				saveCompletedMessage := messages.Job{Action: "saved"}
+				saveCompletedWrap := &messages.Wrapper{
+					Msg: &messages.Wrapper_Job{Job: &saveCompletedMessage},
+				}
+				clientHandler.Send(saveCompletedWrap)
 
 			} else if msg.Job.GetAction() == "reduce" {
 				outputFilePath := wrapper.GetJob().GetOutput()
@@ -211,7 +228,7 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 				mapResult := messages.MapPairs{}
 				for i := 0; i < int(totalChunks); i++ {
 					jobPath := filepath.Join(jobDirPath, fmt.Sprint(i))
-					in, err := ioutil.ReadFile(jobPath)
+					in, err := os.ReadFile(jobPath)
 					if err != nil {
 						log.Fatalln("Error reading map pair file:", err)
 					}
@@ -301,7 +318,7 @@ func handleActionGet(msg *messages.Wrapper_Chunk, clientHandler *messages.Messag
 	numOfRequests++
 	order := msg.Chunk.GetOrder()
 	chunkPath := filepath.Join(os.Args[1], msg.Chunk.GetFullpath(), fmt.Sprintf("chunk-%d", order))
-	chunk, err := ioutil.ReadFile(chunkPath)
+	chunk, err := os.ReadFile(chunkPath)
 	if err != nil {
 		log.Printf("Could not open the chunk due to this %s error \n", err)
 	}
