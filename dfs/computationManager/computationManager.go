@@ -63,7 +63,7 @@ func handleJobs(msgHandler *messages.MessageHandler) {
 					mapperList = append(mapperList, key)
 				}
 				sort.SliceStable(mapperList, func(i, j int) bool{
-					return mapperSort[mapperList[i]] < mapperSort[mapperList[j]]
+					return mapperSort[mapperList[i]] > mapperSort[mapperList[j]]
 				})
 
 				//send request to controller to ask activenodes' list
