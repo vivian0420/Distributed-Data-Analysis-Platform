@@ -16,6 +16,7 @@ This project is extended from Project1(https://github.com/usf-cs677-fa22/P1-vivi
  - Controller: responsible for managing resources in the system.
  - Storage nodes: responsible for storing and retrieving file chunks.
  - Client: responsible for breaking files into chunks, asking the controller where to store them, and then sending them to the appropriate storage node(s). Also it is able to download/delete from the file system.
+ - submit-job client: responsible for submitting job to Computation Manager.
  - Computation Manager: manage computations. For example, receive job submissions, determine relevant storage nodes based on the input file, and then transfer the job to the target nodes for execution.
 
 
@@ -32,12 +33,12 @@ This project is extended from Project1(https://github.com/usf-cs677-fa22/P1-vivi
 
 *Upload a file to the DFS system:*
 ```
-go run client.go <controller-hostname> put <target-file-path> <destination-path>
+go run client/client.go <controller-hostname> put <target-file-path> <destination-path>
 ```
 
 *Submit job to Computation Manager:*
 ```
-go run submit_job.go <plugin-file-path> <input-file> <output-file> <computation manager hostname> <reducer amount>
+go run submit/submit_job.go <plugin-file-path> <input-file> <output-file> <computation manager hostname> <reducer amount>
 ```
 
 
@@ -51,10 +52,10 @@ go run submit_job.go <plugin-file-path> <input-file> <output-file> <computation 
 ## Additional Notes:
 1.Start Controller by running:
 ```
-go run controller.go
+go run controller/controller.go
 ```
 
 2.Start Storage node by running:
 ```
-go run storagenode.go <Storage path> <controller-hostname> <:Storagenode-path>
+go run storage/storagenode.go <Storage path> <controller-hostname> <:Storagenode-path>
 ```
