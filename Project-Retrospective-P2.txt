@@ -1,0 +1,17 @@
+1.How many extra days did you use for the project?
+A: I finished this project right on the due date.
+
+2.Given the same goals, how would you complete the project differently if you didn’t have any restrictions imposed by the instructor? This could involve using a particular library, programming language, etc. Be sure to provide sufficient detail to justify your response.
+A: If I got permission to implement this project without any restrictions, I would like to try external library: Go Data Structures(https://github.com/emirpasic/gods).
+
+3.Let’s imagine that your next project was to improve and extend P2. What are the features/functionality you would add, use cases you would support, etc? Are there any weaknesses in your current implementation that you would like to improve upon? This should include at least three areas you would improve/extend.
+A: If the next project was to improve and extend P2, I would like to improve the load balancing of my P2. Now I only send map job to the first replica of chunk. Also I would like to implement some more fun job.
+
+Give a rough estimate of how long you spent completing this assignment. Additionally, what part of the assignment took the most time?
+A: It took me around 60 hours to finish this project. The hardest part for me is understanding the workflow of this project.
+
+What did you learn from completing this project? Is there anything you would change about the project?
+A: I learned how to use the Go plugin, and this project made me better understand how the internals of MapReduce work.
+
+If you worked as a group, how did you divide the workload? What went well with your team, and what did not go well?
+A: I finished  this project without any teammates.
