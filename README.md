@@ -5,7 +5,9 @@ Please see: https://www.cs.usfca.edu/~mmalensek/cs677/assignments/project-2.html
 
 
 # Overview
-This project is extended from Project1(https://github.com/usf-cs677-fa22/P1-vivian). Project 1 dealt with the storage aspect of big data while  this project shifted our focus to computing. In this project, I extended my DFS to support MapReduce jobs. Specific features include:\
+This project is extended from Project1(https://github.com/usf-cs677-fa22/P1-vivian). Project 1 dealt with the storage aspect of big data while  this project shifted our focus to computing. In this project, I extended my DFS to support MapReduce jobs.
+
+Specific features include:
 * Datatype-aware chunk partitioning
 * Job submission and monitoring, including pushing computations to nodes for data locality
 * Load balancing across computation nodes
