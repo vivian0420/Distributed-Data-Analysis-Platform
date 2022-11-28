@@ -153,7 +153,7 @@ func sendPlugin(chunk *messages.Chunk, plugin []byte, inputFile string, outputFi
 }
 
 func main() {
-	computationManager, err := net.Listen("tcp", ":20110")
+	computationManager, err := net.Listen("tcp", ":20120")
 	if err != nil {
 		log.Fatalln(err.Error())
 		return
