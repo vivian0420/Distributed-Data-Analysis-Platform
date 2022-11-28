@@ -6,7 +6,8 @@ import (
 	"strings"
 )
 
-//go build -buildmode=plugin -gcflags="all=-N -l" -o ./pluginrun/plugin.so ./plugin/plugin.go
+//on VScode: go build -buildmode=plugin -gcflags="all=-N -l" -o ./pluginrun/plugin.so ./plugin/plugin.go
+//on orions: go build -buildmode=plugin -o ./pluginrun/plugin.so ./plugin/plugin.go
 func Map(line_number int, line_text string) []*map[string]uint32 {
 	var mapped []*map[string]uint32
 	words := strings.Fields(line_text)

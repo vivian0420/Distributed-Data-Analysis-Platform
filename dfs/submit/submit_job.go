@@ -11,7 +11,7 @@ import (
 
 func main() {
 	host := os.Args[4]
-	conn, err := net.Dial("tcp", host+":20110")
+	conn, err := net.Dial("tcp", host+":20120")
 	if err != nil {
 		log.Fatalln(err.Error())
 		return
