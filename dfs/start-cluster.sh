@@ -8,7 +8,9 @@ source "${script_dir}/nodes.sh"
 
 echo "Installing..."
 go install controller/controller.go   || exit 1 # Exit if compile+install fails
+go install computationManager/computationManager.go || exit 1 # Exit if compile+install fails
 go install storage/storagenode.go || exit 1 # Exit if compile+install fails
+
 echo "Done!"
 
 echo "Creating log directory: ${log_dir}"
@@ -21,7 +23,7 @@ ssh "${controller}" "${HOME}/go/bin/controller" &> "${log_dir}/controller.log" &
 sleep 2
 
 echo "Starting Computation Manager..."
-ssh "${computationManager}" "${HOME}/go/bin/computationManager" &> "${log_dir}/computationManager.log" &
+ssh "${computationManager}" "${HOME}/go/bin/computationManager ${controller}" &> "${log_dir}/computationManager.log" &
 
 echo "Starting Storage Nodes..."
 for node in ${nodes[@]}; do
