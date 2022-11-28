@@ -9,6 +9,9 @@ source "${script_dir}/nodes.sh"
 echo "Stopping controller..."
 ssh "${controller}" 'pkill -u "$(whoami)" controller'
 
+echo "Stopping computation manager..."
+ssh "${computationManager}" 'pkill -u "$(whoami)" computationManager'
+
 echo "Stopping Storage Nodes..."
 for node in ${nodes[@]}; do
     echo "${node}"

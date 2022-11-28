@@ -1,4 +1,5 @@
 controller="orion01"
+computationManager="orion02"
 
 # Node list. You can comment out nodes that you don't want to use with '#'
 nodes=(

@@ -17,8 +17,11 @@ mkdir -pv "${log_dir}"
 echo "Starting Controller..."
 ssh "${controller}" "${HOME}/go/bin/controller" &> "${log_dir}/controller.log" &
 
-# give 5 seconds for controller to fully start
+# give 2 seconds for controller to fully start
 sleep 2
+
+echo "Starting Computation Manager..."
+ssh "${computationManager}" "${HOME}/go/bin/computationManager" &> "${log_dir}/computationManager.log" &
 
 echo "Starting Storage Nodes..."
 for node in ${nodes[@]}; do
