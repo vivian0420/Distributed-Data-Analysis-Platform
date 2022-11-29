@@ -35,13 +35,19 @@ Specific features include:
 
 *Upload a file to the DFS system:*
 ```
-go run client/client.go <controller-hostname> put <target-file-path> <destination-path>
+go run client/client.go <controller-hostname> put <target-file-path> <destination-path> -text <chunk-size>
 ```
 
 *Submit job to Computation Manager:*
 ```
 go run submit/submit_job.go <plugin-file-path> <input-file> <output-file> <computation manager hostname> <reducer amount>
 ```
+
+*Download a file from the DFS system:*
+```
+go run client/client.go <controller-hostname> get <target-file-path> <destination-path>
+```
+
 
 
 
