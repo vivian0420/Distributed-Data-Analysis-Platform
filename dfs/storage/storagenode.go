@@ -303,7 +303,7 @@ func handleClient(clientHandler *messages.MessageHandler, thisHostName string) {
 				defer conToController.Close()
 				putMsgHandler := messages.NewMessageHandler(conToController)
 				outputPath := filepath.Join(outputFilePath, fmt.Sprintf("result-%d", reducerIndex))
-				clientlib.HandlePutFile(putMsgHandler, "put", os.Args[1]+"/reduceResult.txt", outputPath, "-text", "256")
+				clientlib.HandlePutFile(putMsgHandler, "put", os.Args[1]+"/reduceResult.txt", outputPath, "-text", "102400")
 			}
 
 		case nil:

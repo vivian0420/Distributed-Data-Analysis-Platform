@@ -66,17 +66,24 @@ func handlePut(msgHandler *messages.MessageHandler, file *os.File, path string, 
 			return
 		}
 		c.Content = content[:bytesread]
-		toConnect := c.GetReplicanodename()[0]
-		conn, err := net.Dial("tcp", toConnect)
-		if err != nil {
-			log.Fatalln("fail to connect to storage node: "+toConnect, err.Error())
-			return
+
+		for i, toConnect := range c.GetReplicanodename() {
+			conn, err := net.Dial("tcp", toConnect)
+			if err != nil {
+				log.Println("fail to connect to storage node: "+toConnect, err.Error())
+				if i == len(c.GetReplicanodename())-1 {
+					log.Fatal("No good host to connect to")
+				}
+				continue
+			}
+			defer conn.Close()
+			storageMsgHandler := messages.NewMessageHandler(conn)
+			wrap := &messages.Wrapper{
+				Msg: &messages.Wrapper_Chunk{Chunk: c},
+			}
+			storageMsgHandler.Send(wrap)
+			break
 		}
-		storageMsgHandler := messages.NewMessageHandler(conn)
-		wrap := &messages.Wrapper{
-			Msg: &messages.Wrapper_Chunk{Chunk: c},
-		}
-		storageMsgHandler.Send(wrap)
 	}
 }
 
