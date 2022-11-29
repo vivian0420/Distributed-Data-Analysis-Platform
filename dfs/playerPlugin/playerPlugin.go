@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"hash/fnv"
 	"sort"
 	"strconv"
@@ -87,7 +86,7 @@ func Reduce(sorted []*map[string][]uint32) []*map[string]uint32 {
 			for _, score := range value {
 				totalscore += score
 			}
-			averageScore := (math.Round(float64((int(totalscore) / games)* 100)) / 100)
+			averageScore := int(totalscore) / games
 			temp := make(map[string]uint32)
 			temp[key] = uint32(averageScore)
 			reduced = append(reduced, &temp)
