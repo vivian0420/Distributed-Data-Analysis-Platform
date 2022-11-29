@@ -58,12 +58,12 @@ go run client/client.go <controller-hostname> get <target-file-path> <destinatio
 
 
 ## Additional Notes:
-1.Start Controller by running:
+1.Start cluster by running:
 ```
-go run controller/controller.go
+./start-cluster.sh
 ```
 
-2.Start Storage node by running:
+2.Stop cluster by running:
 ```
-go run storage/storagenode.go <Storage path> <controller-hostname> <:Storagenode-path>
+./stop-cluster.sh
 ```
